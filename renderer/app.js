@@ -706,38 +706,80 @@ function clSetTab(t) {
 $('clTabSessions').onclick = () => clSetTab('sessions');
 $('clTabChat').onclick = () => clSetTab('chat');
 
+// Sisa usage langganan (batas 5 jam & 7 hari) dari status line Claude Code di laptop ini.
+const USAGE_WINDOWS = [['five_hour', '5 jam', '5j'], ['seven_day', '7 hari', '7h']];
+function usageLeft(w) {
+  if (!w || w.used_percentage == null) return null;
+  // Sudah lewat waktu reset sejak data terakhir: jatahnya penuh lagi.
+  if (w.resets_at && w.resets_at * 1000 < Date.now()) return { left: 100, reset: true };
+  return { left: Math.max(0, 100 - Math.round(w.used_percentage)), reset: false };
+}
+const barClass = (left) => 'bar' + (left <= 10 ? ' hot' : left <= 30 ? ' warn' : '');
+function usageBar(left) {
+  const bar = document.createElement('span'); bar.className = barClass(left);
+  const fill = document.createElement('i'); fill.style.width = `${left}%`; bar.appendChild(fill);
+  return bar;
+}
+function fmtReset(sec) {
+  const d = new Date(sec * 1000);
+  const sameDay = d.toDateString() === new Date().toDateString();
+  return d.toLocaleString('id-ID', sameDay ? { hour: '2-digit', minute: '2-digit' } : { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+}
+function clUsageNote() {
+  const st = cl.state || {};
+  if (!st.installed) return 'Klik "Pasang" di bawah supaya Claude Code di laptop ini mengirim data sisa usage.';
+  if (st.statusLine === 'other') return 'Status line Claude Code Anda dipakai skrip lain, jadi data usage tidak sampai ke sini. Klik "Pakai status line pulau" untuk menggantinya (yang lama disimpan dan dikembalikan saat hooks dilepas).';
+  return 'Data dikirim status line Claude Code setiap kali Claude membalas di terminal atau VS Code (paket Pro/Max). Sesi cloud tidak mengirim data ini.';
+}
 function clRenderUsage() {
   const el = $('clUsage');
   el.textContent = '';
-  el.title = '';
   if (cl.tab === 'chat') {
     const u = cl.chat && cl.chat.usage && cl.chat.usage.today;
+    el.title = '';
     if (u && u.requests) el.textContent = `Chat hari ini: ${u.requests} pesan · ${fmtTokens(u.input + u.output)} token · ~$${u.cost.toFixed(u.cost < 1 ? 3 : 2)}`;
     return;
   }
+  el.title = 'Sisa usage langganan Claude: klik untuk rincian';
   const lim = cl.state && cl.state.limits;
-  if (!lim) { el.textContent = cl.state && cl.state.installed ? 'Batas pemakaian muncul setelah sesi berikutnya' : ''; return; }
-  const tips = [];
-  const add = (w, label) => {
-    if (!w || w.used_percentage == null) return;
-    const pct = Math.round(w.used_percentage);
-    const span = document.createElement('span');
-    span.append(`${label}`);
-    const bar = document.createElement('span');
-    bar.className = 'bar' + (pct >= 90 ? ' hot' : pct >= 70 ? ' warn' : '');
-    const fill = document.createElement('i'); fill.style.width = `${Math.min(100, pct)}%`; bar.appendChild(fill);
-    span.append(bar, `${pct}%  `);
-    el.appendChild(span);
-    if (w.resets_at) {
-      const r = new Date(w.resets_at * 1000);
-      tips.push(`${label}: reset ${r.toLocaleString('id-ID', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`);
-    }
-  };
-  add(lim.five_hour, '5 jam');
-  add(lim.seven_day, '7 hari');
-  tips.push(`Data per ${relTime(lim.at)} (dari status line Claude Code)`);
-  el.title = tips.join('\n');
+  const parts = USAGE_WINDOWS.map(([k, , short]) => [usageLeft(lim && lim[k]), short]).filter(([u]) => u);
+  if (!parts.length) el.textContent = 'Sisa usage: —';
+  else {
+    el.append('Sisa ');
+    parts.forEach(([u, short], n) => {
+      if (n) el.append(' · ');
+      el.append(`${short} `, usageBar(u.left), `${u.left}%`);
+    });
+  }
+  if (!$('clUsageBox').hidden) clRenderUsageBox();
 }
+function clRenderUsageBox() {
+  const lim = cl.state && cl.state.limits;
+  const rows = $('clUsageRows');
+  rows.textContent = '';
+  for (const [k, label] of USAGE_WINDOWS) {
+    const w = lim && lim[k];
+    const u = usageLeft(w);
+    if (!u) continue;
+    const r = document.createElement('div'); r.className = 'ur';
+    const pct = document.createElement('b'); pct.textContent = `${u.left}%`;
+    const note = document.createElement('small');
+    note.textContent = u.reset ? 'Sudah reset sejak data terakhir' : `Terpakai ${100 - u.left}%${w.resets_at ? ` · reset ${fmtReset(w.resets_at)}` : ''}`;
+    r.append(`Sisa ${label}`, usageBar(u.left), pct, note);
+    rows.appendChild(r);
+  }
+  $('clUsageAge').textContent = lim && lim.at ? `· data ${relTime(lim.at)}` : '· belum ada data';
+  $('clUsageNote').textContent = clUsageNote();
+  const st = cl.state || {};
+  $('clUsageStatus').hidden = !(st.installed && st.statusLine === 'other');
+}
+$('clUsage').onclick = () => { if (cl.tab === 'chat') return; $('clUsageBox').hidden = false; clRenderUsageBox(); };
+$('clUsageClose').onclick = () => { $('clUsageBox').hidden = true; };
+$('clUsageStatus').onclick = async () => {
+  const r = await api.claude.useStatusLine();
+  $('clUsageNote').textContent = r && r.ok ? 'Status line pulau dipasang. Data muncul setelah Claude membalas berikutnya.' : (r && r.error) || 'Gagal memasang status line.';
+  $('clUsageStatus').hidden = !!(r && r.ok);
+};
 
 function clRenderSessions() {
   const st = cl.state;
@@ -777,12 +819,21 @@ function clRenderSessions() {
       b2.onclick = (e) => { e.stopPropagation(); api.claude.copy(`claude --teleport ${s.cloudId}`); b2.textContent = 'Tersalin'; setTimeout(() => { b2.textContent = 'Salin perintah teleport'; }, 1500); };
       row.append(b1, b2);
     } else if (s.cwd) {
+      const b0 = document.createElement('button'); b0.className = 'chip'; b0.textContent = 'Buka sesi ↗';
+      b0.title = 'Buka di aplikasi Claude Desktop. Sesi dari terminal disalin ke Desktop sebagai sesi baru; jangan dilanjutkan di dua tempat sekaligus.';
+      b0.onclick = async (e) => {
+        e.stopPropagation();
+        const r = await api.claude.openLocalSession(s.id);
+        if (r && r.ok) return;
+        b0.textContent = r && r.why === 'desktop' ? 'Claude Desktop tidak terpasang' : 'Gagal membuka';
+        setTimeout(() => { b0.textContent = 'Buka sesi ↗'; }, 2500);
+      };
       const b1 = document.createElement('button'); b1.className = 'chip'; b1.textContent = 'Buka folder';
       b1.onclick = (e) => { e.stopPropagation(); api.claude.openFolder(s.cwd); };
       const b2 = document.createElement('button'); b2.className = 'chip'; b2.textContent = 'Salin perintah lanjut';
       b2.title = 'Salin perintah untuk melanjutkan sesi ini di terminal';
       b2.onclick = (e) => { e.stopPropagation(); api.claude.copy(`cd "${s.cwd}"; claude --resume ${s.id}`); b2.textContent = 'Tersalin'; setTimeout(() => { b2.textContent = 'Salin perintah lanjut'; }, 1500); };
-      row.append(b1, b2);
+      row.append(b0, b1, b2);
     }
     more.appendChild(row);
     li.append(dot, nm, tm, dt, more);

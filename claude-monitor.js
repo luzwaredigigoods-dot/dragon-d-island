@@ -258,6 +258,32 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
     } catch (_) { return 'unknown'; }
   }
 
+  function ourStatusLine() {
+    fs.copyFileSync(path.join(appDir, 'statusline.ps1'), statusScriptPath());
+    const script = statusScriptPath().replace(/\\/g, '/');
+    return {
+      type: 'command',
+      command: `powershell -NoProfile -ExecutionPolicy Bypass -File "${script}" -Url http://127.0.0.1:${PORT}${BASE}/statusline -Token ${token} -Tag dragon`,
+    };
+  }
+
+  // Mengganti status line milik pengguna dengan milik pulau (atas permintaan pengguna). Yang lama
+  // disimpan dan dikembalikan saat hooks dilepas.
+  function useStatusLine() {
+    let cfg;
+    try { cfg = readClaudeSettings(); } catch (err) {
+      return { ok: false, error: `settings.json Claude Code tidak bisa dibaca (${clip(err.message, 80)}). Tidak ada yang diubah.` };
+    }
+    if (cfg.statusLine && !isOurStatus(cfg.statusLine)) { settings.prevStatusLine = cfg.statusLine; saveSettings(); }
+    cfg.statusLine = ourStatusLine();
+    try { writeClaudeSettings(cfg); } catch (err) {
+      return { ok: false, error: `Gagal menulis settings.json: ${clip(err.message, 100)}` };
+    }
+    log('claude: status line pulau dipasang, yang lama disimpan');
+    changed();
+    return { ok: true };
+  }
+
   function install() {
     let cfg;
     try { cfg = readClaudeSettings(); } catch (err) {
@@ -273,12 +299,7 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
     let statusNote = '';
     const sl = cfg.statusLine;
     if (!sl || isOurStatus(sl)) {
-      fs.copyFileSync(path.join(appDir, 'statusline.ps1'), statusScriptPath());
-      const script = statusScriptPath().replace(/\\/g, '/');
-      cfg.statusLine = {
-        type: 'command',
-        command: `powershell -NoProfile -ExecutionPolicy Bypass -File "${script}" -Url http://127.0.0.1:${PORT}${BASE}/statusline -Token ${token} -Tag dragon`,
-      };
+      cfg.statusLine = ourStatusLine();
     } else {
       statusNote = 'Status line Claude Code Anda sudah dipakai skrip lain, jadi persentase batas 5 jam/7 hari tidak bisa ditampilkan.';
     }
@@ -302,10 +323,13 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
       }
       if (!Object.keys(cfg.hooks).length) delete cfg.hooks;
     }
-    if (isOurStatus(cfg.statusLine)) delete cfg.statusLine;
+    if (isOurStatus(cfg.statusLine)) {
+      if (settings.prevStatusLine) cfg.statusLine = settings.prevStatusLine; else delete cfg.statusLine;
+    }
     try { writeClaudeSettings(cfg); } catch (err) {
       return { ok: false, error: `Gagal menulis settings.json: ${clip(err.message, 100)}` };
     }
+    if (settings.prevStatusLine) { delete settings.prevStatusLine; saveSettings(); }
     log('claude: hooks dilepas');
     changed();
     return { ok: true };
@@ -375,7 +399,7 @@ PY
 
   function close() { clearInterval(staleTimer); try { server.close(); } catch (_) { /* sudah tutup */ } }
 
-  return { snapshot, install, uninstall, clearFinished, close, handleHook, handleStatusLine, setCloud, cloudSnippet };
+  return { snapshot, install, uninstall, useStatusLine, clearFinished, close, handleHook, handleStatusLine, setCloud, cloudSnippet };
 }
 
 module.exports = { createMonitor, PORT, EVENTS };

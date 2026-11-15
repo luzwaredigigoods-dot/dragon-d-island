@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld('api', {
     uninstall: () => ipcRenderer.invoke('claude:uninstall'),
     clear: () => ipcRenderer.send('claude:clear'),
     openFolder: (dir) => ipcRenderer.send('claude:openFolder', dir),
+    useStatusLine: () => ipcRenderer.invoke('claude:useStatusLine'),
+    openLocalSession: (id) => ipcRenderer.invoke('claude:openLocalSession', id),
     openCloud: () => ipcRenderer.send('claude:openCloud'),
     openCloudSession: (id) => ipcRenderer.send('claude:openCloudSession', id),
     setCloud: (v) => ipcRenderer.invoke('claude:setCloud', v),

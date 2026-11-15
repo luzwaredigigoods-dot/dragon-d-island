@@ -3,6 +3,7 @@ const { createChat } = require('./claude-chat');
 const { createMonitor } = require('./claude-monitor');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { spawn } = require('child_process');
 
 const WIN_H = 440; // cukup untuk panel tertinggi (halaman Claude) + naga
@@ -488,6 +489,7 @@ ipcMain.handle('claude:ask', (_e, text, model) => (chat ? chat.ask(text, model) 
 ipcMain.on('claude:reset', () => { if (chat) chat.reset(); });
 ipcMain.on('claude:stop', () => { if (chat) chat.stop(); });
 ipcMain.handle('claude:install', () => (monitor ? monitor.install() : { ok: false }));
+ipcMain.handle('claude:useStatusLine', () => (monitor ? monitor.useStatusLine() : { ok: false }));
 ipcMain.handle('claude:uninstall', () => (monitor ? monitor.uninstall() : { ok: false }));
 ipcMain.on('claude:clear', () => { if (monitor) monitor.clearFinished(); });
 ipcMain.handle('claude:setCloud', (_e, v) => (monitor ? monitor.setCloud(v || {}) : { ok: false }));
@@ -496,6 +498,56 @@ ipcMain.on('claude:openCloudSession', (_e, id) => {
   if (!/^(cse|session)_[A-Za-z0-9]{8,64}$/.test(String(id))) return;
   // Variabel CLAUDE_CODE_REMOTE_SESSION_ID berawalan cse_, alamat webnya session_ (akhiran sama).
   openClaude(`code/${String(id).replace(/^cse_/, 'session_')}`);
+});
+// Sesi lokal di Claude Desktop. Tautan claude://resume?session=<id> (belum didokumentasikan Anthropic):
+//  - bila id cocok dengan sesi yang sudah ada di Desktop, sesi itu yang dibuka;
+//  - bila tidak, Desktop mengimpor transkrip CLI-nya sebagai sesi baru (mis. sesi dari terminal).
+// Sesi yang dibuat langsung di Desktop punya id sendiri (local_<uuid>) yang berbeda dari id CLI di hook,
+// jadi id Desktop-nya dicari dulu di catatan sesi Desktop (hanya dibaca) supaya tidak terbuat kembaran.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function desktopSessionDirs() {
+  const dirs = [];
+  if (process.env.PULAU_CLAUDE_DESKTOP_DIR) return [process.env.PULAU_CLAUDE_DESKTOP_DIR];
+  const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  dirs.push(path.join(appData, 'Claude', 'claude-code-sessions'));
+  // Versi Microsoft Store (MSIX) menyimpan datanya di folder paket.
+  const pk = path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Packages');
+  try {
+    for (const d of fs.readdirSync(pk)) if (/^Claude_/i.test(d)) dirs.push(path.join(pk, d, 'LocalCache', 'Roaming', 'Claude', 'claude-code-sessions'));
+  } catch (_) { /* tidak ada */ }
+  dirs.push(path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude-code-sessions'));
+  return dirs;
+}
+function findDesktopSession(cliId) {
+  let seen = 0;
+  const walk = (dir, depth) => {
+    let ents;
+    try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return null; }
+    for (const e of ents) {
+      if (++seen > 20000) return null;
+      const p = path.join(dir, e.name);
+      if (e.isDirectory() && depth < 4) { const r = walk(p, depth + 1); if (r) return r; continue; }
+      const m = /^local_([0-9a-f-]{36})\.json$/i.exec(e.name);
+      if (!m || !e.isFile()) continue;
+      try {
+        const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+        const ids = [j.cliSessionId, j.unarchivedCliSessionId, ...(Array.isArray(j.priorCliSessionIds) ? j.priorCliSessionIds : [])];
+        if (ids.includes(cliId)) return m[1];
+      } catch (_) { /* berkas rusak: lewati */ }
+    }
+    return null;
+  };
+  for (const d of desktopSessionDirs()) { const r = walk(d, 0); if (r) return r; }
+  return null;
+}
+ipcMain.handle('claude:openLocalSession', async (_e, id) => {
+  id = String(id || '');
+  if (!UUID_RE.test(id)) return { ok: false, why: 'id' };
+  if (!desktopInstalled()) return { ok: false, why: 'desktop' };
+  const desktopId = findDesktopSession(id);
+  const url = `claude://resume?session=${desktopId || id}`;
+  log('buka sesi lokal di Claude Desktop:', url, desktopId ? '(sesi Desktop)' : '(impor dari CLI)');
+  try { await shell.openExternal(url); return { ok: true, existing: !!desktopId }; } catch (err) { log('gagal:', String(err)); return { ok: false, why: 'open' }; }
 });
 ipcMain.on('claude:openFolder', (_e, dir) => { if (dir && fs.existsSync(String(dir))) shell.openPath(String(dir)); });
 // Membuka halaman claude.ai di aplikasi Claude Desktop (tautan claude://claude.ai/...) bila aplikasinya

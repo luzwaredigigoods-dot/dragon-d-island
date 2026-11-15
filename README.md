@@ -30,6 +30,8 @@ Klik **Pasang** di halaman Claude. Dragon Dynamic Island menambahkan hooks berti
 
 - **Butuh izin:** pulau terbuka sendiri di halaman Claude, naga melompat, dan muncul notifikasi Windows.
 - **Selesai:** notifikasi Windows, tanda ✓ di pil, naga senang.
+- **Buka sesi (sesi di komputer):** membuka sesi itu di aplikasi Claude Desktop lewat tautan `claude://resume?session=<id>`. Bila sesinya sudah ada di Desktop, sesi itu yang dibuka (id Desktop-nya dicari di catatan sesi Desktop, hanya dibaca). Sesi dari terminal atau VS Code disalin ke Desktop sebagai sesi baru; jangan dilanjutkan di dua tempat sekaligus. Tautan ini belum didokumentasikan Anthropic.
+- **Sisa usage:** di kanan atas halaman Claude, misalnya `Sisa 5j 62% · 7h 26%`. Klik untuk melihat rincian: terpakai berapa dan kapan reset. Data dikirim status line Claude Code setiap kali Claude membalas di terminal atau VS Code (paket Pro/Max). Sesi cloud tidak mengirimnya. Bila status line Anda sudah dipakai skrip lain, tombol **Pakai status line pulau** menggantinya; yang lama dikembalikan saat hooks dilepas.
 - **Suara:** pilih di menu tray → *Suara notifikasi Claude*: **Auman naga** (bawaan), **Dering**, **Lonceng**, **Bunyi bawaan Windows**, atau **Tanpa suara**. Saat dipilih, contoh suaranya langsung diputar. Suara dibuat oleh aplikasi sendiri (Web Audio), tanpa berkas audio.
 - **Pil:** jumlah sesi yang sedang bekerja (oranye) atau "izin" (berkedip) bila ada yang menunggu.
 - Klik sebuah sesi untuk melihat perintah terakhir, membuka foldernya, atau menyalin perintah `claude --resume` untuk melanjutkannya.

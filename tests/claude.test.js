@@ -186,9 +186,31 @@ test('status line: baris status untuk Claude Code dan batas pemakaian 5 jam / 7 
   assert.equal(r.status, 200);
   assert.equal(r.body, 'Opus 5.5 | ctx 34% | 5h 42% | 7d 91%');
   await sleep(300);
-  assert.match(await t.win.textContent('#clUsage'), /5 jam\s*42%.*7 hari\s*91%/);
-  assert.equal(await t.win.$$eval('#clUsage .bar.hot', (l) => l.length), 1, '7 hari di atas 90% ditandai merah');
-  assert.match(await t.win.textContent('#clList .cs:nth-child(2) .tm'), /ctx 34%/);
+  const { win } = t;
+  assert.equal((await win.textContent('#clUsage')).replace(/\s+/g, ' ').trim(), 'Sisa 5j 58% · 7h 9%', 'yang ditampilkan sisa, bukan yang terpakai');
+  assert.equal(await win.$$eval('#clUsage .bar.hot', (l) => l.length), 1, 'sisa 7 hari di bawah 10% ditandai merah');
+  assert.match(await win.textContent('#clList .cs:nth-child(2) .tm'), /ctx 34%/);
+
+  // Rincian: sisa, terpakai, dan waktu reset; status line milik pengguna bisa diganti milik pulau.
+  await win.click('#clUsage');
+  await sleep(150);
+  const rows = await win.$$eval('#clUsageRows .ur', (l) => l.map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
+  assert.equal(rows.length, 2);
+  assert.match(rows[0], /^Sisa 5 jam58%Terpakai 42% · reset \d{2}[.:]\d{2}$/);
+  assert.match(rows[1], /^Sisa 7 hari9%Terpakai 91% · reset /);
+  assert.match(await win.textContent('#clUsageAge'), /data baru saja/);
+  assert.match(await win.textContent('#clUsageNote'), /skrip lain/);
+  assert.equal(await win.$eval('#clUsageStatus', (e) => e.hidden), false);
+  await win.click('#clUsageStatus');
+  await sleep(300);
+  assert.match(readClaude().statusLine.command, /statusline\.ps1.*-Tag dragon/, 'status line pulau terpasang');
+  assert.match(await win.textContent('#clUsageNote'), /dipasang/);
+  await win.click('#clUsageClose');
+
+  // Waktu reset sudah lewat: jatah dianggap penuh lagi.
+  await post('statusline', { session_id: 's1', rate_limits: { five_hour: { used_percentage: 80, resets_at: now - 60 }, seven_day: { used_percentage: 91, resets_at: now + 400000 } } });
+  await sleep(300);
+  assert.equal((await win.textContent('#clUsage')).replace(/\s+/g, ' ').trim(), 'Sisa 5j 100% · 7h 9%');
 });
 
 test('sesi berakhir dan tombol Bersihkan menyembunyikan sesi yang sudah tidak aktif', async () => {
@@ -335,7 +357,7 @@ test('lepas hooks: hanya milik Dragon Dynamic Island yang dihapus', async () => 
   await sleep(400);
   const cfg = readClaude();
   assert.deepEqual(cfg.hooks, { Stop: [{ hooks: [{ type: 'command', command: 'echo selesai' }] }] });
-  assert.deepEqual(cfg.statusLine, { type: 'command', command: '~/.claude/punya-saya.sh' });
+  assert.deepEqual(cfg.statusLine, { type: 'command', command: '~/.claude/punya-saya.sh' }, 'status line lama dikembalikan');
   assert.equal(cfg.model, 'opus');
   assert.equal(await win.textContent('#clInstall'), 'Pasang');
 });
@@ -356,4 +378,50 @@ test('suara notifikasi: pilihan dari menu tray tersimpan, contoh suaranya dimain
   assert.deepEqual(await win.evaluate(() => window.__sounds), ['dering'], 'contoh suara diputar, Tanpa suara tidak berbunyi');
   for (const k of ['naga', 'dering', 'lonceng']) assert.ok(await win.evaluate((x) => window.DragonSound.play(x), k) > 0, `suara ${k} dapat dibuat`);
   await pick('Auman naga');
+});
+
+test('sesi lokal: tombol Buka sesi membuka Claude Desktop, memakai id sesi Desktop bila ada', async () => {
+  const { win, app } = t;
+  await t.open();
+  await t.page(6);
+  await win.click('#clTabSessions');
+  const cli = '0f1e2d3c-4b5a-4968-8776-655443322110';
+  await hook(cli, '/home/dok/catatan', 'UserPromptSubmit', { prompt: 'rapikan catatan' });
+  await sleep(300);
+  // Catatan sesi Desktop (tiruan): sesi native punya id sendiri, id CLI-nya tercatat di dalamnya.
+  const ddir = path.join(t.dir, 'desktop-sessions', 'akun', 'org');
+  fs.mkdirSync(ddir, { recursive: true });
+  const native = '9a8b7c6d-5e4f-4a3b-9c2d-1e0f9a8b7c6d';
+  fs.writeFileSync(path.join(ddir, `local_${native}.json`), JSON.stringify({ cliSessionId: 'lain', priorCliSessionIds: [cli] }));
+  fs.writeFileSync(path.join(ddir, 'local_rusak.json'), '{');
+  await app.evaluate(({ app: a, shell }, dir) => {
+    process.env.PULAU_CLAUDE_DESKTOP_DIR = dir;
+    global.__opened = [];
+    shell.openExternal = async (u) => { global.__opened.push(u); };
+    a.getApplicationNameForProtocol = () => '';
+  }, path.join(t.dir, 'desktop-sessions'));
+  const idx = await win.$$eval('#clList .cs', (l) => l.findIndex((e) => e.querySelector('.nm').firstChild.textContent === 'catatan'));
+  assert.ok(idx >= 0);
+  const sel = `#clList .cs:nth-child(${idx + 1})`;
+  await win.click(sel);
+  await sleep(150);
+  assert.deepEqual(await win.$$eval(`${sel} .more .chip`, (l) => l.map((e) => e.textContent)), ['Buka sesi ↗', 'Buka folder', 'Salin perintah lanjut']);
+  await win.click(`${sel} .more .chip:first-child`);
+  await sleep(200);
+  assert.equal(await win.textContent(`${sel} .more .chip:first-child`), 'Claude Desktop tidak terpasang');
+  assert.deepEqual(await app.evaluate(() => global.__opened), []);
+
+  await app.evaluate(({ app: a }) => { a.getApplicationNameForProtocol = (p) => (p === 'claude://' ? 'Claude' : ''); });
+  await sleep(2600);
+  await win.click(`${sel} .more .chip:first-child`);
+  await sleep(300);
+  assert.deepEqual(await app.evaluate(() => global.__opened), [`claude://resume?session=${native}`], 'sesi Desktop yang sudah ada dibuka, bukan dibuat kembarannya');
+
+  // Tidak ada di catatan Desktop (mis. sesi dari terminal): diimpor dengan id CLI.
+  fs.rmSync(path.join(ddir, `local_${native}.json`));
+  await win.click(`${sel} .more .chip:first-child`);
+  await sleep(300);
+  assert.deepEqual((await app.evaluate(() => global.__opened)).slice(1), [`claude://resume?session=${cli}`]);
+  await hook(cli, '/home/dok/catatan', 'SessionEnd', { reason: 'other' });
+  await win.click(sel);
 });

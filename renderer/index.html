@@ -150,7 +150,7 @@
                   <button class="chip on" id="clTabSessions">Sesi Claude Code <b id="clCount"></b></button>
                   <button class="chip" id="clTabChat">Chat</button>
                 </div>
-                <div class="cl-usage" id="clUsage"></div>
+                <button class="cl-usage" id="clUsage" title="Sisa usage langganan Claude"></button>
               </div>
 
               <div class="cl-view" id="clSessions">
@@ -174,6 +174,18 @@
                   <button class="chip accent" id="clSend">Kirim</button>
                   <button class="chip" id="clNew" title="Mulai percakapan baru">Baru</button>
                   <button class="chip" id="clKeyBtn" title="Kunci API Claude">Kunci</button>
+                </div>
+              </div>
+
+              <div class="overlay cl-usagebox" id="clUsageBox" hidden>
+                <div class="cl-key-text">
+                  <b>Sisa usage Claude <span class="dim" id="clUsageAge"></span></b>
+                  <span class="dim" id="clUsageNote"></span>
+                </div>
+                <div id="clUsageRows"></div>
+                <div class="cl-key-btns">
+                  <button class="chip" id="clUsageStatus" hidden>Pakai status line pulau</button>
+                  <button class="chip" id="clUsageClose">Tutup</button>
                 </div>
               </div>
 

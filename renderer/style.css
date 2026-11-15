@@ -213,7 +213,17 @@ input, select { background: #17171a; border: 1px solid #2f2f35; color: #fff; bor
 .cl-tabs .chip { padding: 4px 11px; font-size: 11.5px; }
 .cl-tabs .chip b { color: var(--claude); margin-left: 2px; }
 .cl-tabs .chip.on b { color: #b8532f; }
-.cl-usage { font-size: 11px; color: #a3a3a9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.cl-usage { font: inherit; font-size: 11px; color: #a3a3a9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; background: none; border: 0; padding: 2px 4px; border-radius: 6px; cursor: pointer; min-width: 0; }
+.cl-usage:hover { background: #1f1f23; color: #e6e6ea; }
+.overlay.cl-usagebox { grid-template-columns: 1fr; gap: 8px; padding: 0 24px; }
+#clUsageRows .ur { display: grid; grid-template-columns: 74px 1fr 40px; align-items: center; gap: 8px; font-size: 11.5px; color: #c9c9ce; }
+#clUsageRows .ur + .ur { margin-top: 6px; }
+#clUsageRows .ur small { grid-column: 2 / 4; color: #8a8a90; font-size: 10.5px; margin-top: -4px; }
+#clUsageRows .bar { height: 6px; border-radius: 3px; background: #34343a; overflow: hidden; }
+#clUsageRows .bar i { display: block; height: 100%; background: var(--green); }
+#clUsageRows .bar.warn i { background: #ffc53d; } #clUsageRows .bar.hot i { background: #ff5a5f; }
+#clUsageRows b { text-align: right; }
+.cl-usagebox .chip { padding: 4px 10px; font-size: 11px; }
 .cl-usage .bar { display: inline-block; width: 38px; height: 4px; border-radius: 2px; background: #34343a; vertical-align: middle; margin: 0 4px 1px; overflow: hidden; }
 .cl-usage .bar i { display: block; height: 100%; background: var(--green); }
 .cl-usage .bar.warn i { background: #ffc53d; } .cl-usage .bar.hot i { background: #ff5a5f; }
