@@ -40,12 +40,12 @@ Batasan:
 
 ### Sesi cloud (claude.ai/code)
 
-Sesi cloud berjalan di server Anthropic dan tidak membaca pengaturan di laptop. Agar kabarnya sampai ke pulau, laptop dibuka lewat Tailscale Funnel, dan environment cloud memasang hook di setiap mesin sesi lewat *setup script*. Pemasangannya sekali per environment; berlaku untuk semua sesi di environment itu, dengan repo apa pun maupun tanpa repo.
+Sesi cloud berjalan di server Anthropic dan tidak membaca pengaturan di laptop. Agar kabarnya sampai ke pulau, laptop dibuka lewat Tailscale Funnel, dan environment cloud memasang hook di setiap mesin sesi lewat *setup script*. Hook-nya bertipe command yang menjalankan `curl`, karena hanya program yang memakai proxy jaringan cloud (`HTTPS_PROXY`) yang bisa keluar dari mesin sesi; hook bertipe `http` milik Claude Code tidak memakainya dan gagal (teruji 15 Nov 2026). Pemasangannya sekali per environment; berlaku untuk semua sesi di environment itu, dengan repo apa pun maupun tanpa repo.
 
 1. **Tailscale Funnel di laptop:** halaman Claude → **Cloud** → **Salin perintah Tailscale**, lalu jalankan: `tailscale funnel --bg --set-path /dragon-island http://127.0.0.1:47723`. Hanya port 443 yang bisa dipakai, karena proxy jaringan sesi cloud memutus port lain (teruji 15 Nov 2026: 8443 dan 10000 gagal).
 2. **Alamat publik:** isi `https://nama-laptop.tailnet.ts.net` di panel Cloud, lalu **Simpan**.
 3. **Token:** di claude.ai/code, buka pengaturan environment, lalu tambahkan variabel `DRAGON_ISLAND_TOKEN` berisi **Token cloud** dari panel. Alamat Funnel harus bisa dijangkau dari environment itu (daftar host yang diizinkan atau network secret untuk host tersebut).
-4. **Setup script environment:** isi dengan [`scripts/cloud-setup-script.sh`](scripts/cloud-setup-script.sh), setelah alamatnya diganti dengan alamat Funnel Anda. Skrip ini menulis hook ke `~/.claude/settings.json` di mesin cloud (teruji: Claude Code di sesi cloud membaca berkas itu), tidak menimpa pengaturan lain, dan tidak berisi token.
+4. **Setup script environment:** klik **Salin setup script** di panel Cloud (sudah berisi alamat Anda) dan tempel di setup script environment. Contohnya ada di [`scripts/cloud-setup-script.sh`](scripts/cloud-setup-script.sh). Skrip ini menulis hook ke `~/.claude/settings.json` di mesin cloud (teruji: Claude Code di sesi cloud membaca berkas itu), tidak menimpa pengaturan lain, dan tidak berisi token.
 
 Sesi cloud tampil berlabel **CLOUD**, dengan tombol **Buka di claude.ai** dan **Salin perintah teleport**. Butuh izin dan selesai memberi notifikasi yang sama seperti sesi lokal.
 
@@ -55,7 +55,6 @@ Catatan:
 - **Laptop harus menyala:** kabar hanya sampai saat laptop menyala dan Dragon Dynamic Island berjalan. Bila tidak, Claude Code tetap bekerja normal tetapi bisa menampilkan catatan "hook error".
 - **Keamanan:** Funnel hanya membuka jalur penerima kabar ini, dan setiap kabar wajib membawa token. Yang bisa dilakukan pemilik token hanyalah mengirim kabar palsu ke pulau; server tidak menjalankan perintah apa pun. Ganti token di panel (dan di variabel environment) bila bocor.
 - **Tidak resmi:** dua hal di luar dokumentasi Claude Code. ID sesi cloud diambil dari variabel `CLAUDE_CODE_REMOTE_SESSION_ID`, dan setup script bergantung pada sesi cloud yang membaca `~/.claude/settings.json` di mesinnya. Keduanya teruji, tetapi bisa berubah di versi mendatang.
-- **Alternatif per repo:** tombol **Salin hook repo** di panel Cloud menyalin isi `.claude/settings.json` untuk di-commit ke satu repo, bila environment tidak bisa diberi setup script.
 
 ### Batas pemakaian
 

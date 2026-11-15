@@ -174,13 +174,13 @@
               <div class="overlay cl-cloudbox" id="clCloudBox" hidden>
                 <div class="cl-key-text">
                   <b>Sesi cloud <span class="dim" id="clCloudStatus"></span></b>
-                  <span class="dim">Sesi di claude.ai/code berjalan di server Anthropic. Agar kabarnya sampai ke sini, laptop ini dibuka lewat Tailscale Funnel dan tiap repo diberi hook. Lihat README bagian "Sesi cloud".</span>
+                  <span class="dim">Sesi di claude.ai/code berjalan di server Anthropic. Agar kabarnya sampai ke sini, laptop ini dibuka lewat Tailscale Funnel, lalu environment cloud diberi variabel DRAGON_ISLAND_TOKEN dan setup script. Lihat README bagian "Sesi cloud".</span>
                 </div>
                 <label>Alamat publik <input id="clCloudUrl" placeholder="https://nama-laptop.tailnet.ts.net" spellcheck="false"></label>
                 <label>Token cloud <input id="clCloudToken" spellcheck="false" autocomplete="off"></label>
                 <div class="cl-key-btns">
                   <button class="chip" id="clCloudFunnel" title="Perintah untuk dijalankan di laptop ini">Salin perintah Tailscale</button>
-                  <button class="chip" id="clCloudSnippet" title="Isi .claude/settings.json untuk repo">Salin hook repo</button>
+                  <button class="chip" id="clCloudSnippet" title="Tempel di Setup script environment cloud (claude.ai/code)">Salin setup script</button>
                   <button class="chip" id="clCloudOpen">Buka claude.ai/code ↗</button>
                   <button class="chip" id="clCloudClose">Tutup</button>
                   <button class="chip accent" id="clCloudSave">Simpan</button>

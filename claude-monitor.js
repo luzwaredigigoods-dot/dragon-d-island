@@ -321,19 +321,36 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
     changed();
     return { ok: true };
   }
-  // Isi .claude/settings.json untuk repo yang sesi cloud-nya ingin dipantau.
+  // Setup script untuk environment cloud (claude.ai/code): menulis hook ke ~/.claude/settings.json di
+  // mesin sesi cloud. Hook bertipe command menjalankan curl, karena curl lewat proxy jaringan cloud
+  // sedangkan hook bertipe http tidak (teruji 15 Nov 2026). Token dibaca dari variabel DRAGON_ISLAND_TOKEN.
   function cloudSnippet() {
     const base = settings.cloudUrl || 'https://NAMA-LAPTOP.tailnet.ts.net';
-    const h = {
-      type: 'http',
-      url: `${base}${BASE}/hook`,
-      headers: { 'X-Dragon-Island': '$DRAGON_ISLAND_TOKEN', 'X-Dragon-Cloud-Session': '$CLAUDE_CODE_REMOTE_SESSION_ID' },
-      allowedEnvVars: ['DRAGON_ISLAND_TOKEN', 'CLAUDE_CODE_REMOTE_SESSION_ID'],
-      timeout: 5,
-    };
-    const hooks = {};
-    for (const e of EVENTS) hooks[e] = [{ hooks: [h] }];
-    return JSON.stringify({ hooks }, null, 2) + '\n';
+    const url = `${base}${BASE}/hook`;
+    return `# Dragon Dynamic Island: kirim kabar sesi cloud ke laptop. Hook command + curl (curl lewat proxy jaringan cloud;
+# hook bertipe http tidak). Token dari variabel environment DRAGON_ISLAND_TOKEN; tanpa token, hook diam.
+python3 - <<'PY'
+import json, os
+URL = "${url}"
+p = os.path.expanduser("~/.claude/settings.json")
+os.makedirs(os.path.dirname(p), exist_ok=True)
+try:
+    cfg = json.load(open(p))
+except Exception:
+    cfg = {}
+cmd = ('[ -n "$DRAGON_ISLAND_TOKEN" ] && curl -sS -m 8 -o /dev/null -X POST ' + URL +
+       ' -H "Content-Type: application/json" -H "X-Dragon-Island: $DRAGON_ISLAND_TOKEN"'
+       ' -H "X-Dragon-Cloud-Session: $CLAUDE_CODE_REMOTE_SESSION_ID" --data-binary @-; true')
+h = {"type": "command", "command": cmd, "async": True, "timeout": 10}
+ours = lambda x: "/dragon-island/" in str(x.get("url", "")) + str(x.get("command", ""))
+hooks = cfg.setdefault("hooks", {})
+for e in ${JSON.stringify(EVENTS).replace(/","/g, '", "')}:
+    keep = [g for g in hooks.get(e, []) if not any(ours(x) for x in g.get("hooks", []))]
+    hooks[e] = keep + [{"hooks": [h]}]
+json.dump(cfg, open(p, "w"), indent=2)
+print("Dragon Dynamic Island: hooks terpasang di", p)
+PY
+`;
   }
 
   function clearFinished() {

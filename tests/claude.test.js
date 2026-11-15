@@ -97,15 +97,20 @@ test('panel Cloud: alamat & token tersimpan, perintah Tailscale dan hook repo bi
   assert.equal(await t.app.evaluate(({ clipboard }) => clipboard.readText()), `tailscale funnel --bg --set-path /dragon-island http://127.0.0.1:${port}`);
   await win.click('#clCloudSnippet');
   await sleep(300);
-  const snippet = JSON.parse(await t.app.evaluate(({ clipboard }) => clipboard.readText()));
-  assert.deepEqual(Object.keys(snippet.hooks).sort(), ['Notification', 'PermissionRequest', 'PostToolUse', 'SessionEnd', 'SessionStart', 'Stop', 'StopFailure', 'UserPromptSubmit']);
-  assert.deepEqual(snippet.hooks.Stop[0].hooks[0], {
-    type: 'http',
-    url: 'https://laptop.tailnet.ts.net:10000/dragon-island/hook',
-    headers: { 'X-Dragon-Island': '$DRAGON_ISLAND_TOKEN', 'X-Dragon-Cloud-Session': '$CLAUDE_CODE_REMOTE_SESSION_ID' },
-    allowedEnvVars: ['DRAGON_ISLAND_TOKEN', 'CLAUDE_CODE_REMOTE_SESSION_ID'],
-    timeout: 5,
-  }, 'token tidak tertulis di repo; diambil dari variabel environment cloud');
+  // Yang disalin: setup script untuk environment cloud. Jalankan di HOME sementara, lalu periksa hasilnya.
+  const script = await t.app.evaluate(({ clipboard }) => clipboard.readText());
+  assert.ok(!script.includes(cloudToken), 'token tidak ikut tertulis di setup script');
+  const home = fs.mkdtempSync(path.join(require('os').tmpdir(), 'pulau-home-'));
+  require('child_process').execFileSync('bash', ['-c', script], { env: { ...process.env, HOME: home } });
+  require('child_process').execFileSync('bash', ['-c', script], { env: { ...process.env, HOME: home } }); // aman dijalankan ulang
+  const cfg = JSON.parse(fs.readFileSync(path.join(home, '.claude', 'settings.json'), 'utf8'));
+  assert.deepEqual(Object.keys(cfg.hooks).sort(), ['Notification', 'PermissionRequest', 'PostToolUse', 'SessionEnd', 'SessionStart', 'Stop', 'StopFailure', 'UserPromptSubmit']);
+  assert.equal(cfg.hooks.Stop.length, 1, 'tidak dobel');
+  const h = cfg.hooks.Stop[0].hooks[0];
+  assert.equal(h.type, 'command', 'hook command + curl: hook http tidak lewat proxy jaringan cloud');
+  assert.equal(h.async, true);
+  assert.match(h.command, /^\[ -n "\$DRAGON_ISLAND_TOKEN" \] && curl .* https:\/\/laptop\.tailnet\.ts\.net:10000\/dragon-island\/hook .*X-Dragon-Island: \$DRAGON_ISLAND_TOKEN.*X-Dragon-Cloud-Session: \$CLAUDE_CODE_REMOTE_SESSION_ID.* --data-binary @-; true$/);
+  fs.rmSync(home, { recursive: true, force: true });
 
   await win.click('#clCloudOpen');
   await sleep(150);
