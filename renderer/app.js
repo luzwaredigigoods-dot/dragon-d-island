@@ -125,20 +125,7 @@ if (api && api.onDodge) api.onDodge((on) => {
   if (lastCursor) cursorTick(lastCursor); else if (!dodge) setHidden(false);
 });
 
-function chime() {
-  try {
-    const ctx = new AudioContext();
-    [[659, 0], [784, 0.22], [988, 0.44]].forEach(([f, t]) => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = 'sine'; o.frequency.value = f;
-      g.gain.setValueAtTime(0, ctx.currentTime + t);
-      g.gain.linearRampToValueAtTime(0.18, ctx.currentTime + t + 0.03);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.9);
-      o.connect(g).connect(ctx.destination); o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 1);
-    });
-    setTimeout(() => ctx.close(), 2000);
-  } catch (_) { /* audio tidak tersedia */ }
-}
+function chime() { window.DragonSound.play('lonceng'); }
 // Pengingat: pulau terbuka sendiri, berdenyut hijau, naga melompat, plus notifikasi Windows.
 function alertUser(title, body, page, sound, noNotify) {
   wake();
@@ -216,9 +203,18 @@ function tiltLoop() { // sesekali memiringkan kepala, penasaran
 const pages = [...document.querySelectorAll('.page')];
 let pageIdx = Math.min(load('page2', 0), pages.length - 1);
 const dots = $('dots');
-pages.forEach((_, i) => {
-  const d = document.createElement('i');
-  d.addEventListener('click', () => showPage(i));
+// Baris bawah: satu ikon per fitur, klik untuk langsung pindah ke fitur itu.
+pages.forEach((pg, i) => {
+  const d = document.createElement('button');
+  d.className = 'navicon';
+  d.title = pg.dataset.label || '';
+  d.setAttribute('aria-label', pg.dataset.label || `Halaman ${i + 1}`);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', `#n-${pg.dataset.icon}`);
+  svg.appendChild(use);
+  d.appendChild(svg);
+  d.addEventListener('click', () => clickPage(i));
   dots.appendChild(d);
 });
 // Ikon Trash berubah kosong/berisi: segarkan saat Shelf ditampilkan (paling sering tiap 10 detik).
@@ -244,8 +240,15 @@ function showPage(i) {
   layout();
   if (pageIdx === SHELF_PAGE && wrap.classList.contains('expanded')) refreshSpecials();
 }
-$('prev').onclick = () => showPage(pageIdx - 1);
-$('next').onclick = () => showPage(pageIdx + 1);
+// Pindah halaman lewat klik: tinggi panel bisa berubah (Claude lebih tinggi) sehingga kursor tiba-tiba
+// berada di luar panel. Tahan sebentar supaya pulau tidak langsung menutup.
+function clickPage(i) {
+  const next = (i + pages.length) % pages.length;
+  if (pageIdx === CLAUDE_PAGE && next !== CLAUDE_PAGE) holdUntil = Math.max(holdUntil, Date.now() + 1500);
+  showPage(i);
+}
+$('prev').onclick = () => clickPage(pageIdx - 1);
+$('next').onclick = () => clickPage(pageIdx + 1);
 wrap.addEventListener('wheel', (e) => {
   if (e.target.closest('#todoList, .overlay, textarea, #clList, #clLog')) return;
   const sh = $('shelf');
@@ -766,7 +769,8 @@ function clRenderSessions() {
     if (meta) { const p = document.createElement('p'); p.className = 'dim'; p.textContent = meta; more.appendChild(p); }
     const row = document.createElement('div'); row.className = 'row';
     if (s.cloudId) {
-      const b1 = document.createElement('button'); b1.className = 'chip'; b1.textContent = 'Buka di claude.ai ↗';
+      const b1 = document.createElement('button'); b1.className = 'chip'; b1.textContent = 'Buka sesi ↗';
+      b1.title = 'Buka di aplikasi Claude Desktop atau browser (pilih di menu tray)';
       b1.onclick = (e) => { e.stopPropagation(); api.claude.openCloudSession(s.cloudId); };
       const b2 = document.createElement('button'); b2.className = 'chip'; b2.textContent = 'Salin perintah teleport';
       b2.title = 'Lanjutkan sesi cloud ini di terminal laptop (dari folder repo yang sama)';
@@ -950,11 +954,13 @@ if (api && api.claude) {
   api.claude.onState((st) => { cl.state = st; clRenderSessions(); if (!$('clCloudBox').hidden) clRenderCloud(); });
   api.claude.onAlert((a) => {
     const s = a.session || {};
+    // Suara pilihan (menu tray > Suara notifikasi Claude); "windows" = bunyi notifikasi Windows saja.
+    if (a.sound && a.sound !== 'windows' && a.sound !== 'diam') window.DragonSound.play(a.sound);
     const who = s.project || 'Claude Code';
     if (a.kind === 'permission') {
       clSetTab('sessions');
       // Notifikasi Windows dikirim proses utama; di sini pulau terbuka di halaman Claude.
-      alertUser(`${who}: Claude butuh izin`, s.detail || '', CLAUDE_PAGE, true, true);
+      alertUser(`${who}: Claude butuh izin`, s.detail || '', CLAUDE_PAGE, false, true);
     } else if (a.kind === 'done') {
       cl.flash = { until: Date.now() + 10000 };
       mood('happy', 1600); mood('hop', 900);
@@ -964,6 +970,7 @@ if (api && api.claude) {
     }
     clRenderPill();
   });
+  api.claude.onPlaySound((kind) => window.DragonSound.play(kind));
   api.claude.onOpen(() => { setHidden(false); holdUntil = Date.now() + 8000; setExpanded(true); showPage(CLAUDE_PAGE); clSetTab('sessions'); });
   api.claude.reset(); // tampilan baru dimuat: mulai percakapan baru juga di proses utama
   api.claude.status().then((st) => {

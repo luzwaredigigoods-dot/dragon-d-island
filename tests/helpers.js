@@ -89,7 +89,7 @@ async function launch({ env = {} } = {}) {
     },
     // Buka panel dengan mengarahkan mouse ke pil.
     open: async () => { await win.mouse.move(ctx.cx, 80); await win.mouse.move(ctx.cx, 10); await sleep(600); },
-    page: async (n) => { await win.click(`#dots i:nth-child(${n})`); await sleep(350); },
+    page: async (n) => { await win.click(`#dots .navicon:nth-child(${n})`); await sleep(350); },
     fileInfo: (p) => win.evaluate((x) => window.api.shelfInfo(x), p),
     close: async () => {
       try { await app.close(); } finally { fs.rmSync(dir, { recursive: true, force: true }); }

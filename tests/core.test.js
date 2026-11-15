@@ -30,7 +30,7 @@ test('pil menampilkan tanggal dan jam, lalu panel terbuka saat kursor di atasnya
 test('enam halaman, tombol navigasi di bawah berputar, isi tidak menabrak baris navigasi', async () => {
   const { win } = t;
   await t.open();
-  assert.equal(await win.$$eval('#dots i', (l) => l.length), 6);
+  assert.deepEqual(await win.$$eval('#dots .navicon', (l) => l.map((e) => e.title)), ['Media', 'Shelf', 'Todo List', 'Jadwal Sholat', 'Notes', 'Claude']);
   await t.page(1);
   const titles = [];
   for (let i = 0; i < 6; i++) {
@@ -54,6 +54,18 @@ test('enam halaman, tombol navigasi di bawah berputar, isi tidak menabrak baris 
   await win.click('#prev');
   await sleep(300);
   assert.equal((await t.title()).split(' ')[0], 'Claude');
+});
+
+test('ikon halaman: klik langsung ke halaman itu; dari Claude (panel tinggi) pulau tidak langsung menutup', async () => {
+  const { win } = t;
+  await t.open();
+  await t.page(6);
+  assert.match(await t.title(), /^Claude/);
+  assert.match(await win.$eval('#dots .navicon:nth-child(6)', (e) => e.className), /\bon\b/);
+  await win.click('#dots .navicon:nth-child(2)');
+  await sleep(700);
+  assert.match(await t.title(), /^Shelf/);
+  assert.match(await t.wrapClass(), /expanded/, 'panel mengecil tapi pulau tetap terbuka sesaat');
 });
 
 test('media: judul, waktu, sampul, dan gelombang di pil', async () => {

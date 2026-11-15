@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('api', {
     onState: (cb) => ipcRenderer.on('claude:state', (_e, s) => cb(s)),
     onAlert: (cb) => ipcRenderer.on('claude:alert', (_e, a) => cb(a)),
     onOpen: (cb) => ipcRenderer.on('claude:open', () => cb()),
+    onPlaySound: (cb) => ipcRenderer.on('sound:play', (_e, k) => cb(k)),
   },
   onAdmin: (cb) => ipcRenderer.on('admin', (_e, on) => cb(on)),
   onThumb: (cb) => ipcRenderer.on('media:thumb', (_e, data) => cb(data)),

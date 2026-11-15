@@ -17,6 +17,12 @@
     <symbol id="i-left" viewBox="0 0 24 24"><path d="M14.5 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-right" viewBox="0 0 24 24"><path d="M9.5 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-drop" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z M12 10v5 M12 17.6v.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="n-media" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6" cy="18" r="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="16" r="3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="n-shelf" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></g></symbol>
+    <symbol id="n-todo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12.5l2.8 2.8L16.5 9"/></g></symbol>
+    <symbol id="n-pray" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/><path d="M17 3.5l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7z"/></g></symbol>
+    <symbol id="n-notes" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></g></symbol>
+    <symbol id="n-claude" viewBox="0 0 24 24"><g stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/></g></symbol>
   </defs>
 </svg>
 
@@ -48,7 +54,7 @@
 
         <div id="pages">
           <!-- 1. Media -->
-          <section class="page" data-title="Media">
+          <section class="page" data-title="Media" data-icon="media" data-label="Media">
             <div class="media-top">
               <div class="media-art" id="mediaArt"><svg><use id="mediaArtIcon" href="#i-note"/></svg></div>
               <div class="media-meta">
@@ -69,7 +75,7 @@
           </section>
 
           <!-- 2. Shelf -->
-          <section class="page" data-title="Shelf <button class='mini' id='shelfEdit'>Edit</button><button class='mini danger' id='shelfClear'>Clear</button>">
+          <section class="page" data-title="Shelf <button class='mini' id='shelfEdit'>Edit</button><button class='mini danger' id='shelfClear'>Clear</button>" data-icon="shelf" data-label="Shelf">
             <div id="shelfBox">
               <div id="shelf"></div>
               <div id="shelfHint"><svg><use href="#i-drop"/></svg><span>Seret file atau shortcut aplikasi ke sini</span></div>
@@ -85,7 +91,7 @@
           </section>
 
           <!-- 3. Todo -->
-          <section class="page" data-title="Todo <em class='green'>List</em>">
+          <section class="page" data-title="Todo <em class='green'>List</em>" data-icon="todo" data-label="Todo List">
             <div class="todo">
               <div class="todo-left">
                 <div class="todo-count" id="todoCount">0/0</div>
@@ -103,7 +109,7 @@
           </section>
 
           <!-- 4. Sholat -->
-          <section class="page" data-title="Jadwal <em class='green'>Sholat</em>">
+          <section class="page" data-title="Jadwal <em class='green'>Sholat</em>" data-icon="pray" data-label="Jadwal Sholat">
             <div class="pray-top">
               <div>
                 <div class="pray-next"><b id="prayNext">—</b><span id="prayNextTime"></span></div>
@@ -123,7 +129,7 @@
           </section>
 
           <!-- 5. Notes -->
-          <section class="page" data-title="Notes <span class='dim' id='noteCount'></span>">
+          <section class="page" data-title="Notes <span class='dim' id='noteCount'></span>" data-icon="notes" data-label="Notes">
             <div class="notes">
               <textarea id="noteText" spellcheck="false" placeholder="Tempel (Ctrl+V) atau ketik catatan cepat di sini..."></textarea>
               <div class="note-btns">
@@ -137,7 +143,7 @@
           </section>
 
           <!-- 6. Claude -->
-          <section class="page" data-title="Claude">
+          <section class="page" data-title="Claude" data-icon="claude" data-label="Claude">
             <div class="cl">
               <div class="cl-top">
                 <div class="cl-tabs">
@@ -181,7 +187,7 @@
                 <div class="cl-key-btns">
                   <button class="chip" id="clCloudFunnel" title="Perintah untuk dijalankan di laptop ini">Salin perintah Tailscale</button>
                   <button class="chip" id="clCloudSnippet" title="Tempel di Setup script environment cloud (claude.ai/code)">Salin setup script</button>
-                  <button class="chip" id="clCloudOpen">Buka claude.ai/code ↗</button>
+                  <button class="chip" id="clCloudOpen">Buka Claude Code ↗</button>
                   <button class="chip" id="clCloudClose">Tutup</button>
                   <button class="chip accent" id="clCloudSave">Simpan</button>
                 </div>
@@ -260,6 +266,7 @@
   </div>
 </div>
 <script src="prayer.js"></script>
+<script src="sounds.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

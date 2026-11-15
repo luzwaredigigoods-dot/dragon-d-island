@@ -68,7 +68,7 @@ em.green { color: var(--green); }
 .batt.charging { box-shadow: 0 0 8px #35e07a88; }
 
 /* baris navigasi di bawah: [<] titik halaman [>] */
-#navrow { position: absolute; bottom: 5px; left: 0; right: 0; height: 18px; display: flex; align-items: center; justify-content: center; gap: 12px; z-index: 3; }
+#navrow { position: absolute; bottom: 4px; left: 0; right: 0; height: 22px; display: flex; align-items: center; justify-content: center; gap: 12px; z-index: 3; }
 .nav { width: 17px; height: 17px; border-radius: 50%; background: #fff; color: #000; flex: none;
   display: grid; place-items: center; transition: transform .15s, background .15s; }
 .nav svg { width: 9px; height: 9px; }
@@ -78,9 +78,13 @@ em.green { color: var(--green); }
 .page { position: absolute; inset: 0; opacity: 0; pointer-events: none; transform: translateX(16px); transition: opacity .2s, transform .25s; }
 .page.active { opacity: 1; pointer-events: auto; transform: none; }
 
-#dots { display: flex; align-items: center; justify-content: center; gap: 5px; }
-#dots i { width: 4px; height: 3px; border-radius: 2px; background: #55555a; transition: width .2s, background .2s; cursor: pointer; }
-#dots i.on { width: 16px; background: #fff; }
+#dots { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.navicon { width: 24px; height: 20px; border-radius: 7px; display: grid; place-items: center; color: #77777e; transition: color .15s, background .15s, transform .12s; }
+.navicon svg { width: 13px; height: 13px; }
+.navicon:hover { color: #e4e4e8; background: #ffffff14; }
+.navicon:active { transform: scale(.88); }
+.navicon.on { color: #000; background: #fff; }
+.navicon.on:nth-child(6) { background: var(--claude); color: #fff; }
 
 .row { display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 10px; }
 .row.left { justify-content: flex-start; }

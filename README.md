@@ -13,6 +13,8 @@ Dynamic island pribadi untuk Windows: pil kecil di tepi atas layar, dengan naga 
 | Notes | Catatan cepat; tempel, salin, dan simpan ke `Documents\Dragon Dynamic Island Notes` sebagai `.txt` |
 | Claude | **Sesi Claude Code** di komputer ini dalam 24 jam terakhir (bekerja / butuh izin / selesai), notifikasi saat selesai atau butuh izin, batas pemakaian 5 jam & 7 hari; **chat cepat** lewat Claude API |
 
+Di bawah panel ada baris ikon, satu per halaman: klik ikonnya untuk langsung ke halaman itu. Tombol ‹ › di sampingnya berpindah satu halaman.
+
 Lainnya:
 
 - **Pil:** tanggal, jam, indikator musik, dan hitung mundur sholat (≤30 menit).
@@ -28,6 +30,7 @@ Klik **Pasang** di halaman Claude. Dragon Dynamic Island menambahkan hooks berti
 
 - **Butuh izin:** pulau terbuka sendiri di halaman Claude, naga melompat, dan muncul notifikasi Windows.
 - **Selesai:** notifikasi Windows, tanda ✓ di pil, naga senang.
+- **Suara:** pilih di menu tray → *Suara notifikasi Claude*: **Auman naga** (bawaan), **Dering**, **Lonceng**, **Bunyi bawaan Windows**, atau **Tanpa suara**. Saat dipilih, contoh suaranya langsung diputar. Suara dibuat oleh aplikasi sendiri (Web Audio), tanpa berkas audio.
 - **Pil:** jumlah sesi yang sedang bekerja (oranye) atau "izin" (berkedip) bila ada yang menunggu.
 - Klik sebuah sesi untuk melihat perintah terakhir, membuka foldernya, atau menyalin perintah `claude --resume` untuk melanjutkannya.
 
@@ -47,7 +50,7 @@ Sesi cloud berjalan di server Anthropic dan tidak membaca pengaturan di laptop. 
 3. **Token:** di claude.ai/code, buka pengaturan environment, lalu tambahkan variabel `DRAGON_ISLAND_TOKEN` berisi **Token cloud** dari panel. Alamat Funnel harus bisa dijangkau dari environment itu (daftar host yang diizinkan atau network secret untuk host tersebut).
 4. **Setup script environment:** klik **Salin setup script** di panel Cloud (sudah berisi alamat Anda) dan tempel di setup script environment. Contohnya ada di [`scripts/cloud-setup-script.sh`](scripts/cloud-setup-script.sh). Skrip ini menulis hook ke `~/.claude/settings.json` di mesin cloud (teruji: Claude Code di sesi cloud membaca berkas itu), tidak menimpa pengaturan lain, dan tidak berisi token.
 
-Sesi cloud tampil berlabel **CLOUD**, dengan tombol **Buka di claude.ai** dan **Salin perintah teleport**. Butuh izin dan selesai memberi notifikasi yang sama seperti sesi lokal.
+Sesi cloud tampil berlabel **CLOUD**, dengan tombol **Buka sesi** dan **Salin perintah teleport**. **Buka sesi** memakai aplikasi Claude Desktop bila terpasang (tautan `claude://claude.ai/code/<id>`), atau browser bila tidak; ganti di menu tray → *Buka sesi cloud di*. Tautan `claude://` untuk sesi tertentu belum didokumentasikan Anthropic, jadi pilihan Desktop masih percobaan: bila aplikasi Desktop hanya membuka halaman utamanya, pilih *Browser*. Butuh izin dan selesai memberi notifikasi yang sama seperti sesi lokal.
 
 Catatan:
 

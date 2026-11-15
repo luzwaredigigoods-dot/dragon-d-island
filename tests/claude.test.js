@@ -139,6 +139,7 @@ test('kabar sesi: bekerja, butuh izin (pulau terbuka sendiri), lanjut bekerja, s
   assert.match(await win.$eval('#pillClaude', (e) => e.className), /working/);
   assert.equal(await win.$eval('#pillClaude', (e) => e.textContent.trim()), '1');
 
+  await win.evaluate(() => { window.__sounds = []; if (window.__spied) return; window.__spied = true; const play = window.DragonSound.play; window.DragonSound.play = (k) => { window.__sounds.push(k); return play(k); }; });
   await hook('s2', '/home/dok/dragon-d-island', 'UserPromptSubmit', { prompt: 'tambahkan fitur cuaca' });
   await hook('s2', '/home/dok/dragon-d-island', 'PermissionRequest', { tool_name: 'Bash', tool_input: { command: 'npm install axios' } });
   await sleep(500);
@@ -151,6 +152,7 @@ test('kabar sesi: bekerja, butuh izin (pulau terbuka sendiri), lanjut bekerja, s
     'working|simrs-rme|Edit: cppt.md',
   ]);
   assert.equal(await win.textContent('#clCount'), '2');
+  assert.deepEqual(await win.evaluate(() => window.__sounds), ['naga'], 'auman naga saat Claude butuh izin');
 
   await hook('s2', '/home/dok/dragon-d-island', 'PostToolUse', { tool_name: 'Bash', tool_input: { command: 'npm install axios' } });
   await hook('s1', 'C:\\Users\\dok\\proyek\\simrs-rme', 'Stop', { last_assistant_message: 'Draf CPPT sudah saya tulis di cppt.md.' });
@@ -227,11 +229,17 @@ test('kabar sesi cloud: diterima dengan token cloud, berlabel CLOUD, tertaut ke 
   await win.click('#clList .cs:first-child');
   await sleep(150);
   const buttons = await win.$$eval('#clList .cs:first-child .more .chip', (l) => l.map((e) => e.textContent));
-  assert.deepEqual(buttons, ['Buka di claude.ai ↗', 'Salin perintah teleport'], 'sesi cloud tidak punya folder di laptop');
+  assert.deepEqual(buttons, ['Buka sesi ↗', 'Salin perintah teleport'], 'sesi cloud tidak punya folder di laptop');
+  // Claude Desktop tidak terpasang (di mesin tes): jatuh ke browser. ID cse_ diubah ke session_ untuk alamat web.
   await win.click('#clList .cs:first-child .more .chip:first-child');
   await win.click('#clList .cs:first-child .more .chip:last-child');
   await sleep(200);
-  assert.deepEqual(await t.app.evaluate(() => global.__opened), ['https://claude.ai/code/cse_013pJi9r3vWyj78HUdwWg1a7']);
+  assert.deepEqual(await t.app.evaluate(() => global.__opened), ['https://claude.ai/code/session_013pJi9r3vWyj78HUdwWg1a7']);
+  // Claude Desktop terpasang: tautan claude:// dipakai.
+  await t.app.evaluate(({ app }) => { global.__opened = []; app.getApplicationNameForProtocol = (p) => (p === 'claude://' ? 'Claude' : ''); });
+  await win.click('#clList .cs:first-child .more .chip:first-child');
+  await sleep(200);
+  assert.deepEqual(await t.app.evaluate(() => global.__opened), ['claude://claude.ai/code/session_013pJi9r3vWyj78HUdwWg1a7']);
   assert.equal(await t.app.evaluate(({ clipboard }) => clipboard.readText()), 'claude --teleport cse_013pJi9r3vWyj78HUdwWg1a7');
 
   // ID sesi yang tidak wajar tidak dipakai untuk tautan
@@ -330,4 +338,22 @@ test('lepas hooks: hanya milik Dragon Dynamic Island yang dihapus', async () => 
   assert.deepEqual(cfg.statusLine, { type: 'command', command: '~/.claude/punya-saya.sh' });
   assert.equal(cfg.model, 'opus');
   assert.equal(await win.textContent('#clInstall'), 'Pasang');
+});
+
+test('suara notifikasi: pilihan dari menu tray tersimpan, contoh suaranya dimainkan, Tanpa suara diam', async () => {
+  const { win } = t;
+  await win.evaluate(() => { window.__sounds = []; if (window.__spied) return; window.__spied = true; const play = window.DragonSound.play; window.DragonSound.play = (k) => { window.__sounds.push(k); return play(k); }; });
+  const pick = (label) => t.app.evaluate(({ Menu }, l) => {
+    // menu tray dibuat ulang dari templat; cari item lewat menu konteks yang disimpan main.js
+    const sub = global.__trayMenu.items.find((i) => i.label === 'Suara notifikasi Claude').submenu;
+    sub.items.find((i) => i.label === l).click();
+  }, label);
+  await pick('Dering');
+  await sleep(200);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(t.dir, 'settings.json'), 'utf8')).claudeSound, 'dering');
+  await pick('Tanpa suara');
+  await sleep(200);
+  assert.deepEqual(await win.evaluate(() => window.__sounds), ['dering'], 'contoh suara diputar, Tanpa suara tidak berbunyi');
+  for (const k of ['naga', 'dering', 'lonceng']) assert.ok(await win.evaluate((x) => window.DragonSound.play(x), k) > 0, `suara ${k} dapat dibuat`);
+  await pick('Auman naga');
 });

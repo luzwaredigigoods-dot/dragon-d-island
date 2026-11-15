@@ -15,6 +15,8 @@ if (process.env.PULAU_USER_DATA) {
   app.setPath('documents', path.join(process.env.PULAU_USER_DATA, 'Documents'));
 }
 
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 const APP_NAME = 'Dragon Dynamic Island';
 const APP_ID = 'com.dragondynamicisland.app';
 const OLD_NAME = 'Pulau'; // nama aplikasi sebelum versi 3.2
@@ -68,7 +70,7 @@ function log(...parts) {
     fs.appendFileSync(logPath, line);
   } catch (_) { /* log tidak boleh mengganggu aplikasi */ }
 }
-let settings = { dodge: 'auto' }; // auto | always | off
+let settings = { dodge: 'auto', claudeSound: 'naga', cloudOpen: 'desktop' }; // dodge: auto | always | off
 function settingsPath() { return path.join(app.getPath('userData'), 'settings.json'); }
 function loadSettings() {
   try { settings = Object.assign(settings, JSON.parse(fs.readFileSync(settingsPath(), 'utf8'))); } catch (_) { /* bawaan */ }
@@ -172,8 +174,7 @@ function buildTrayMenu() {
     label, type: 'radio', checked: settings.dodge === value,
     click: () => { settings.dodge = value; saveSettings(); sendDodge(); },
   });
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
+  const menu = Menu.buildFromTemplate([
       { label: 'Tampilkan / Sembunyikan  (Ctrl+Alt+I)', click: toggleVisible },
       {
         label: 'Jalankan saat Windows menyala',
@@ -188,6 +189,20 @@ function buildTrayMenu() {
         })),
       },
       {
+        label: 'Suara notifikasi Claude',
+        submenu: [['Auman naga', 'naga'], ['Dering', 'dering'], ['Lonceng', 'lonceng'], ['Bunyi bawaan Windows', 'windows'], ['Tanpa suara', 'diam']].map(([label, v]) => ({
+          label, type: 'radio', checked: settings.claudeSound === v,
+          click: () => { settings.claudeSound = v; saveSettings(); log('suara notifikasi:', v); if (v !== 'windows' && v !== 'diam') send('sound:play', v); },
+        })),
+      },
+      {
+        label: 'Buka sesi cloud di',
+        submenu: [['Aplikasi Claude Desktop (percobaan)', 'desktop'], ['Browser', 'browser']].map(([label, v]) => ({
+          label, type: 'radio', checked: settings.cloudOpen === v,
+          click: () => { settings.cloudOpen = v; saveSettings(); log('buka sesi cloud di:', v); },
+        })),
+      },
+      {
         label: 'Menyingkir saat kursor mendekat',
         submenu: [
           dodgeItem('Otomatis (saat ada jendela terbuka penuh)', 'auto'),
@@ -199,8 +214,9 @@ function buildTrayMenu() {
       { label: 'Buka file log', click: () => { log('log dibuka'); shell.showItemInFolder(logPath); } },
       { type: 'separator' },
       { label: 'Keluar', click: () => app.quit() },
-    ])
-  );
+  ]);
+  global.__trayMenu = menu; // dipakai tes
+  tray.setContextMenu(menu);
 }
 
 // Shortcut berlogo di Desktop: dibuat sekali saat pertama dijalankan, atau lewat menu tray.
@@ -444,7 +460,8 @@ let monitor = null;
 function notifyWindows(title, body) {
   try {
     if (!Notification.isSupported()) return;
-    const n = new Notification({ title, body, silent: false });
+    // Bunyi bawaan Windows hanya dipakai bila dipilih; suara lain dimainkan oleh pulau sendiri.
+    const n = new Notification({ title, body, silent: settings.claudeSound !== 'windows' });
     n.on('click', () => { if (win && !win.isDestroyed()) { win.showInactive(); send('claude:open'); } });
     n.show();
   } catch (err) { log('notifikasi gagal:', String(err)); }
@@ -461,7 +478,7 @@ function startClaude() {
       if (a.kind === 'permission') notifyWindows(`${who}: Claude butuh izin`, s.detail || 'Buka sesi Claude Code untuk menjawab.');
       else if (a.kind === 'done') notifyWindows(`${who}: Claude selesai`, s.detail || 'Tugas selesai.');
       else if (a.kind === 'error') notifyWindows(`${who}: Claude berhenti karena error`, s.detail || '');
-      send('claude:alert', a);
+      send('claude:alert', { ...a, sound: settings.claudeSound });
     },
   });
 }
@@ -476,12 +493,30 @@ ipcMain.on('claude:clear', () => { if (monitor) monitor.clearFinished(); });
 ipcMain.handle('claude:setCloud', (_e, v) => (monitor ? monitor.setCloud(v || {}) : { ok: false }));
 ipcMain.handle('claude:cloudSnippet', () => (monitor ? monitor.cloudSnippet() : ''));
 ipcMain.on('claude:openCloudSession', (_e, id) => {
-  if (/^(cse|session)_[A-Za-z0-9]{8,64}$/.test(String(id))) shell.openExternal(`${CLOUD_URL}/${id}`);
+  if (!/^(cse|session)_[A-Za-z0-9]{8,64}$/.test(String(id))) return;
+  // Variabel CLAUDE_CODE_REMOTE_SESSION_ID berawalan cse_, alamat webnya session_ (akhiran sama).
+  openClaude(`code/${String(id).replace(/^cse_/, 'session_')}`);
 });
 ipcMain.on('claude:openFolder', (_e, dir) => { if (dir && fs.existsSync(String(dir))) shell.openPath(String(dir)); });
-// Sesi cloud tidak punya API untuk dibaca dari laptop: buka daftarnya di browser.
-const CLOUD_URL = 'https://claude.ai/code';
-ipcMain.on('claude:openCloud', () => { log('buka sesi cloud di browser'); shell.openExternal(CLOUD_URL); });
+// Membuka halaman claude.ai di aplikasi Claude Desktop (tautan claude://claude.ai/...) bila aplikasinya
+// terpasang dan dipilih di menu tray; selain itu di browser. Membuka sesi tertentu lewat tautan
+// claude:// tidak didokumentasikan Anthropic, jadi pilihan Desktop masih percobaan.
+const CLAUDE_WEB = 'https://claude.ai';
+function desktopInstalled() {
+  try { return !!app.getApplicationNameForProtocol('claude://'); } catch (_) { return false; }
+}
+function openClaude(pathPart) {
+  const web = `${CLAUDE_WEB}/${pathPart}`;
+  if (settings.cloudOpen === 'desktop' && desktopInstalled()) {
+    const deep = `claude://claude.ai/${pathPart}`;
+    log('buka di Claude Desktop:', deep);
+    shell.openExternal(deep).catch((err) => { log('Claude Desktop gagal, pakai browser:', String(err)); shell.openExternal(web); });
+    return;
+  }
+  log('buka di browser:', web);
+  shell.openExternal(web);
+}
+ipcMain.on('claude:openCloud', () => openClaude('code'));
 ipcMain.on('claude:copy', (_e, text) => { try { clipboard.writeText(String(text)); } catch (_) { /* abaikan */ } });
 // ---------- Ikon ----------
 function expandEnv(p) {
