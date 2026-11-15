@@ -73,16 +73,48 @@ test('pasang hooks: pengaturan Claude Code lain tetap utuh, cadangan dibuat, tid
   assert.match(await t.win.textContent('#clEmpty'), /Belum ada sesi/);
 });
 
-test('tombol Sesi cloud membuka claude.ai/code di browser', async () => {
+test('panel Cloud: alamat & token tersimpan, perintah Tailscale dan hook repo bisa disalin', async () => {
+  const { win } = t;
   await t.app.evaluate(({ shell }) => { global.__opened = []; shell.openExternal = async (u) => { global.__opened.push(u); }; });
-  await t.win.click('#clCloud');
+  await win.click('#clCloud');
+  assert.equal(await win.evaluate(() => document.getElementById('clCloudBox').hidden), false);
+  const cloudToken = JSON.parse(fs.readFileSync(path.join(t.dir, 'settings.json'), 'utf8')).cloudToken;
+  assert.match(cloudToken, /^[0-9a-f]{48}$/);
+  assert.notEqual(cloudToken, token, 'token cloud berbeda dari token lokal');
+  assert.equal(await win.inputValue('#clCloudToken'), cloudToken);
+  assert.match(await win.textContent('#clCloudStatus'), /belum ada kabar/);
+
+  await win.fill('#clCloudUrl', 'http://laptop.example');
+  await win.click('#clCloudSave');
   await sleep(200);
+  assert.match(await win.textContent('#clCloudStatus'), /https:\/\//, 'alamat tanpa https ditolak');
+  await win.fill('#clCloudUrl', 'https://laptop.tailnet.ts.net:10000/');
+  await win.click('#clCloudSave');
+  await sleep(200);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(t.dir, 'settings.json'), 'utf8')).cloudUrl, 'https://laptop.tailnet.ts.net:10000');
+
+  await win.click('#clCloudFunnel');
+  assert.equal(await t.app.evaluate(({ clipboard }) => clipboard.readText()), `tailscale funnel --bg --https=10000 http://127.0.0.1:${port}`);
+  await win.click('#clCloudSnippet');
+  await sleep(300);
+  const snippet = JSON.parse(await t.app.evaluate(({ clipboard }) => clipboard.readText()));
+  assert.deepEqual(Object.keys(snippet.hooks).sort(), ['Notification', 'PermissionRequest', 'PostToolUse', 'SessionEnd', 'SessionStart', 'Stop', 'StopFailure', 'UserPromptSubmit']);
+  assert.deepEqual(snippet.hooks.Stop[0].hooks[0], {
+    type: 'http',
+    url: 'https://laptop.tailnet.ts.net:10000/dragon-island/hook',
+    headers: { 'X-Dragon-Island': '$DRAGON_ISLAND_TOKEN', 'X-Dragon-Cloud-Session': '$CLAUDE_CODE_REMOTE_SESSION_ID' },
+    allowedEnvVars: ['DRAGON_ISLAND_TOKEN', 'CLAUDE_CODE_REMOTE_SESSION_ID'],
+    timeout: 5,
+  }, 'token tidak tertulis di repo; diambil dari variabel environment cloud');
+
+  await win.click('#clCloudOpen');
+  await sleep(150);
   assert.deepEqual(await t.app.evaluate(() => global.__opened), ['https://claude.ai/code']);
-  assert.match(await t.win.textContent('#clEmpty'), /Sesi cloud/);
+  await win.click('#clCloudClose');
 });
 
-test('server lokal menolak kabar tanpa token yang benar', async () => {
-  assert.equal((await post('hook', { session_id: 'x', hook_event_name: 'Stop' }, {})).status, 403);
+test('server lokal menolak token salah dan mengabaikan kabar tanpa token', async () => {
+  assert.equal((await post('hook', { session_id: 'x', hook_event_name: 'Stop' }, {})).status, 204, 'tanpa token: 2xx kosong, diabaikan');
   assert.equal((await post('hook', { session_id: 'x', hook_event_name: 'Stop' }, { 'X-Dragon-Island': 'salah' })).status, 403);
   await sleep(300);
   assert.deepEqual(await rows(), []);
@@ -160,6 +192,50 @@ test('sesi berakhir dan tombol Bersihkan menyembunyikan sesi yang sudah tidak ak
   await t.win.click('#clClear');
   await sleep(300);
   assert.deepEqual((await rows()).map((x) => x.split('|')[1]), ['laporan'], 'yang masih bekerja tetap tampil');
+});
+
+test('kabar sesi cloud: diterima dengan token cloud, berlabel CLOUD, tertaut ke claude.ai', async () => {
+  const { win } = t;
+  const cloudToken = JSON.parse(fs.readFileSync(path.join(t.dir, 'settings.json'), 'utf8')).cloudToken;
+  const cloudHeaders = { 'X-Dragon-Island': cloudToken, 'X-Dragon-Cloud-Session': 'cse_013pJi9r3vWyj78HUdwWg1a7' };
+  const body = (event, extra) => ({ session_id: 'c1', cwd: '/home/user/dragon-d-island', transcript_path: 'x', hook_event_name: event, ...extra });
+
+  // Sesi lokal di repo yang memakai hook cloud: variabelnya kosong, jadi tanpa token. Diterima 2xx tapi diabaikan.
+  const silent = await post('hook', body('UserPromptSubmit', { prompt: 'dari laptop' }), { 'X-Dragon-Island': '' });
+  assert.equal(silent.status, 204);
+  assert.equal((await post('statusline', { session_id: 'c1' }, cloudHeaders)).status, 403, 'status line hanya dari laptop');
+
+  const r = await post('hook', body('UserPromptSubmit', { prompt: 'tambahkan fitur cuaca di cloud' }), cloudHeaders);
+  assert.equal(r.status, 204);
+  await post('hook', body('PermissionRequest', { tool_name: 'Bash', tool_input: { command: 'npm publish' } }), cloudHeaders);
+  await sleep(500);
+  assert.match(await t.wrapClass(), /expanded/, 'izin dari sesi cloud juga membuka pulau');
+  const row = await win.$eval('#clList .cs:first-child', (e) => ({
+    cls: e.className, name: e.querySelector('.nm').firstChild.textContent,
+    badge: (e.querySelector('.nm .badge') || {}).textContent, title: (e.querySelector('.nm small') || {}).textContent,
+    detail: e.querySelector('.dt').textContent,
+  }));
+  assert.match(row.cls, /permission/);
+  assert.deepEqual([row.name, row.badge, row.title, row.detail], ['dragon-d-island', 'CLOUD', 'tambahkan fitur cuaca di cloud', 'Minta izin: Bash: npm publish']);
+
+  await t.app.evaluate(({ shell }) => { global.__opened = []; shell.openExternal = async (u) => { global.__opened.push(u); }; });
+  await win.click('#clList .cs:first-child');
+  await sleep(150);
+  const buttons = await win.$$eval('#clList .cs:first-child .more .chip', (l) => l.map((e) => e.textContent));
+  assert.deepEqual(buttons, ['Buka di claude.ai ↗', 'Salin perintah teleport'], 'sesi cloud tidak punya folder di laptop');
+  await win.click('#clList .cs:first-child .more .chip:first-child');
+  await win.click('#clList .cs:first-child .more .chip:last-child');
+  await sleep(200);
+  assert.deepEqual(await t.app.evaluate(() => global.__opened), ['https://claude.ai/code/cse_013pJi9r3vWyj78HUdwWg1a7']);
+  assert.equal(await t.app.evaluate(({ clipboard }) => clipboard.readText()), 'claude --teleport cse_013pJi9r3vWyj78HUdwWg1a7');
+
+  // ID sesi yang tidak wajar tidak dipakai untuk tautan
+  await post('hook', { ...body('Stop', { last_assistant_message: 'Selesai.' }), session_id: 'c2' }, { ...cloudHeaders, 'X-Dragon-Cloud-Session': 'cse_x"><script>' });
+  await sleep(300);
+  await win.click('#clCloud');
+  assert.match(await win.textContent('#clCloudStatus'), /kabar terakhir baru saja/);
+  await win.click('#clCloudClose');
+  await t.cursor(t.cx + 600, 700, 12500); // tunggu pengingat izin selesai
 });
 
 test('chat: minta kunci dulu, jawaban mengalir bertahap, lalu usage tercatat', async () => {

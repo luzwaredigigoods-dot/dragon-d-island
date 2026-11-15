@@ -43,6 +43,9 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
   } catch (_) { /* belum ada */ }
   if (!settings.hookToken) { settings.hookToken = crypto.randomBytes(18).toString('hex'); saveSettings(); }
   const token = settings.hookToken;
+  // Token terpisah untuk sesi cloud (dikirim lewat Tailscale Funnel dari server Anthropic).
+  if (!settings.cloudToken) { settings.cloudToken = crypto.randomBytes(24).toString('hex'); saveSettings(); }
+  let cloudLast = 0; // waktu kabar cloud terakhir
 
   let saveTimer = null;
   function persist() {
@@ -67,12 +70,13 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
       statusLine: statusLineState(),
       listening,
       port: PORT,
+      cloud: { token: settings.cloudToken, url: settings.cloudUrl || '', last: cloudLast },
     };
   }
   const changed = () => { persist(); onChange(snapshot()); };
 
   // ---------- event dari hooks ----------
-  function handleHook(ev) {
+  function handleHook(ev, meta = {}) {
     const id = String(ev.session_id || '');
     if (!id) return;
     const now = Date.now();
@@ -83,6 +87,11 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
     if (ev.transcript_path) s.transcript = ev.transcript_path;
     if (ev.session_title) s.title = clip(ev.session_title, 80);
     s.hidden = false;
+    if (meta.origin === 'cloud') {
+      s.origin = 'cloud';
+      if (meta.cloudId) s.cloudId = meta.cloudId;
+      cloudLast = now;
+    }
     const name = ev.hook_event_name;
     const sub = ev.agent_id ? ' (subagen)' : '';
     switch (name) {
@@ -174,7 +183,16 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
       res.end(body);
     };
     // Token wajib: header khusus tidak bisa dikirim halaman web tanpa izin CORS, jadi situs lain tidak bisa memalsukan kabar.
-    if (req.method !== 'POST' || req.headers['x-dragon-island'] !== token) return done(403);
+    // Jalur boleh diawali awalan lain (mis. dari proxy), yang menentukan hanya akhirannya.
+    const route = String(req.url || '').split('?')[0];
+    const kind = route.endsWith('/hook') ? 'hook' : route.endsWith('/statusline') ? 'statusline' : '';
+    const given = String(req.headers['x-dragon-island'] || '');
+    const origin = given && given === token ? 'local' : given && given === settings.cloudToken ? 'cloud' : '';
+    if (req.method !== 'POST' || !kind) return done(404);
+    // Tanpa token sama sekali: sesi lokal di repo yang memakai hook cloud (variabelnya kosong di laptop).
+    // Dijawab 2xx kosong supaya Claude Code tidak menampilkan "hook error"; isinya diabaikan.
+    if (!given && kind === 'hook') { req.resume(); return done(204); }
+    if (!origin || (kind === 'statusline' && origin !== 'local')) return done(403);
     let size = 0;
     const chunks = [];
     req.on('data', (c) => { size += c.length; if (size > 1e6) req.destroy(); else chunks.push(c); });
@@ -182,8 +200,12 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
       let j;
       try { j = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); } catch (_) { return done(400); }
       try {
-        if (req.url === `${BASE}/hook`) { handleHook(j); return done(204); } // 2xx tanpa isi: tidak mengubah keputusan Claude Code
-        if (req.url === `${BASE}/statusline`) return done(200, handleStatusLine(j));
+        if (kind === 'hook') {
+          const cid = String(req.headers['x-dragon-cloud-session'] || '');
+          handleHook(j, { origin, cloudId: /^(cse|session)_[A-Za-z0-9]{8,64}$/.test(cid) ? cid : '' });
+          return done(204); // 2xx tanpa isi: tidak mengubah keputusan Claude Code
+        }
+        if (kind === 'statusline') return done(200, handleStatusLine(j));
         return done(404);
       } catch (err) {
         log('claude: gagal memproses', String(err).slice(0, 160));
@@ -283,6 +305,37 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
     return { ok: true };
   }
 
+  // ---------- sesi cloud ----------
+  function setCloud({ url, token: newToken } = {}) {
+    if (url !== undefined) {
+      url = String(url).trim().replace(/\/+$/, '');
+      if (url && !/^https:\/\/[A-Za-z0-9.-]+(:\d{1,5})?$/.test(url)) return { ok: false, error: 'Alamat harus berbentuk https://nama-host atau https://nama-host:port' };
+      settings.cloudUrl = url;
+    }
+    if (newToken !== undefined) {
+      newToken = String(newToken).trim();
+      if (!/^[A-Za-z0-9_-]{24,128}$/.test(newToken)) return { ok: false, error: 'Token harus 24-128 huruf/angka' };
+      settings.cloudToken = newToken;
+    }
+    saveSettings();
+    changed();
+    return { ok: true };
+  }
+  // Isi .claude/settings.json untuk repo yang sesi cloud-nya ingin dipantau.
+  function cloudSnippet() {
+    const base = settings.cloudUrl || 'https://NAMA-LAPTOP.tailnet.ts.net:10000';
+    const h = {
+      type: 'http',
+      url: `${base}${BASE}/hook`,
+      headers: { 'X-Dragon-Island': '$DRAGON_ISLAND_TOKEN', 'X-Dragon-Cloud-Session': '$CLAUDE_CODE_REMOTE_SESSION_ID' },
+      allowedEnvVars: ['DRAGON_ISLAND_TOKEN', 'CLAUDE_CODE_REMOTE_SESSION_ID'],
+      timeout: 5,
+    };
+    const hooks = {};
+    for (const e of EVENTS) hooks[e] = [{ hooks: [h] }];
+    return JSON.stringify({ hooks }, null, 2) + '\n';
+  }
+
   function clearFinished() {
     for (const s of Object.values(sessions)) if (s.status === 'done' || s.status === 'ended' || s.status === 'idle') s.hidden = true;
     changed();
@@ -290,7 +343,7 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
 
   function close() { try { server.close(); } catch (_) { /* sudah tutup */ } }
 
-  return { snapshot, install, uninstall, clearFinished, close, handleHook, handleStatusLine };
+  return { snapshot, install, uninstall, clearFinished, close, handleHook, handleStatusLine, setCloud, cloudSnippet };
 }
 
 module.exports = { createMonitor, PORT, EVENTS };

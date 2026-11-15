@@ -153,7 +153,7 @@
                 <div class="cl-foot">
                   <span class="dim" id="clHookInfo"></span>
                   <span>
-                    <button class="mini" id="clCloud" title="Sesi cloud tidak bisa dipantau dari laptop; buka daftarnya di claude.ai/code">Sesi cloud ↗</button>
+                    <button class="mini" id="clCloud" title="Pantau sesi cloud lewat Tailscale Funnel, atau buka claude.ai/code">Cloud</button>
                     <button class="mini" id="clClear">Bersihkan</button>
                     <button class="mini" id="clInstall">Pasang</button>
                   </span>
@@ -168,6 +168,22 @@
                   <button class="chip accent" id="clSend">Kirim</button>
                   <button class="chip" id="clNew" title="Mulai percakapan baru">Baru</button>
                   <button class="chip" id="clKeyBtn" title="Kunci API Claude">Kunci</button>
+                </div>
+              </div>
+
+              <div class="overlay cl-cloudbox" id="clCloudBox" hidden>
+                <div class="cl-key-text">
+                  <b>Sesi cloud <span class="dim" id="clCloudStatus"></span></b>
+                  <span class="dim">Sesi di claude.ai/code berjalan di server Anthropic. Agar kabarnya sampai ke sini, laptop ini dibuka lewat Tailscale Funnel dan tiap repo diberi hook. Lihat README bagian "Sesi cloud".</span>
+                </div>
+                <label>Alamat publik <input id="clCloudUrl" placeholder="https://nama-laptop.tailnet.ts.net:10000" spellcheck="false"></label>
+                <label>Token cloud <input id="clCloudToken" spellcheck="false" autocomplete="off"></label>
+                <div class="cl-key-btns">
+                  <button class="chip" id="clCloudFunnel" title="Perintah untuk dijalankan di laptop ini">Salin perintah Tailscale</button>
+                  <button class="chip" id="clCloudSnippet" title="Isi .claude/settings.json untuk repo">Salin hook repo</button>
+                  <button class="chip" id="clCloudOpen">Buka claude.ai/code ↗</button>
+                  <button class="chip" id="clCloudClose">Tutup</button>
+                  <button class="chip accent" id="clCloudSave">Simpan</button>
                 </div>
               </div>
 

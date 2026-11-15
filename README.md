@@ -38,6 +38,25 @@ Batasan:
 - Bila Dragon Dynamic Island sedang tidak berjalan, hook gagal tersambung. Claude Code tetap bekerja normal, tetapi bisa menampilkan catatan "hook error". Klik **Lepas** untuk mencabut hooks.
 - File transkrip Claude Code tidak dibaca, karena formatnya internal dan bisa berubah tiap versi.
 
+### Sesi cloud (claude.ai/code)
+
+Sesi cloud berjalan di server Anthropic dan tidak membaca pengaturan di laptop. Agar kabarnya sampai ke pulau, laptop dibuka lewat Tailscale Funnel dan tiap repo diberi hook. Semua bagian dari halaman Claude → **Cloud**:
+
+1. **Alamat publik:** isi alamat Funnel laptop, misalnya `https://nama-laptop.tailnet.ts.net:10000`, lalu **Simpan**.
+2. **Tailscale Funnel:** klik **Salin perintah Tailscale**, lalu jalankan di laptop: `tailscale funnel --bg --https=10000 http://127.0.0.1:47723`. Port 10000 dipakai agar tidak bentrok dengan layanan lain di 443/8443.
+3. **Environment cloud:** di claude.ai/code, buka pengaturan environment, lalu tambahkan variabel `DRAGON_ISLAND_TOKEN` berisi **Token cloud** dari panel. Pastikan alamat Funnel bisa dijangkau dari environment itu (daftar host yang diizinkan atau network secret untuk host tersebut).
+4. **Repo:** klik **Salin hook repo**, simpan sebagai `.claude/settings.json` di repo (gabungkan bila file sudah ada), commit, dan push. Token tidak tertulis di repo; hook mengambilnya dari variabel environment.
+
+Sesi cloud tampil berlabel **CLOUD**, dengan tombol **Buka di claude.ai** dan **Salin perintah teleport**. Butuh izin dan selesai memberi notifikasi yang sama seperti sesi lokal.
+
+Catatan:
+
+- **Lingkup:** hook di repo hanya dibaca sesi cloud dengan satu repo (bukan thread dalam *project*).
+- **Laptop harus menyala:** kabar hanya sampai saat laptop menyala dan Dragon Dynamic Island berjalan. Bila tidak, Claude Code tetap bekerja normal tetapi bisa menampilkan catatan "hook error".
+- **Sesi lokal di repo yang sama** ikut membaca hook ini. Karena variabel token tidak ada di laptop, kabarnya dikirim tanpa token, dijawab 2xx, lalu diabaikan. Sesi lokal sudah terpantau lewat hook lokal.
+- **Keamanan:** Funnel hanya membuka port server kabar ini, dan setiap kabar wajib membawa token. Yang bisa dilakukan pemilik token hanyalah mengirim kabar palsu ke pulau; server tidak menjalankan perintah apa pun. Ganti token di panel bila bocor.
+- **Tidak resmi:** ID sesi cloud diambil dari variabel `CLAUDE_CODE_REMOTE_SESSION_ID`, yang ada di sesi cloud tetapi tidak tercantum di dokumentasi; bila suatu saat hilang, tautan ke claude.ai tidak muncul, tetapi kabar tetap jalan.
+
 ### Batas pemakaian
 
 Persentase batas 5 jam dan 7 hari diambil dari *status line* Claude Code (skrip `statusline.ps1`, dipasang bersama hooks). Status line itu juga menampilkan model, konteks, dan persentase batas di Claude Code sendiri. Batasannya:

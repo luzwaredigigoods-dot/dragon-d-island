@@ -747,13 +747,14 @@ function clRenderSessions() {
   if (!st) empty = 'Memuat…';
   else if (!st.listening) empty = `Port ${st.port} sedang dipakai aplikasi lain, jadi kabar dari Claude Code tidak bisa diterima.`;
   else if (!st.installed) empty = 'Klik "Pasang" agar sesi Claude Code di komputer ini muncul di sini, lengkap dengan kabar saat selesai atau butuh izin. Ini menambahkan hooks ke settings.json Claude Code (cadangan dibuat otomatis).';
-  else if (!sessions.length) empty = 'Belum ada sesi Claude Code lokal dalam 24 jam terakhir. Sesi yang berjalan setelah pemasangan akan muncul di sini. Sesi cloud: klik "Sesi cloud ↗".';
+  else if (!sessions.length) empty = 'Belum ada sesi Claude Code lokal dalam 24 jam terakhir. Sesi yang berjalan setelah pemasangan akan muncul di sini. Sesi cloud: klik "Cloud".';
   $('clEmpty').textContent = empty;
   for (const s of sessions) {
     const li = document.createElement('li');
     li.className = `cs ${s.status}` + (cl.open.has(s.id) ? ' open' : '');
     const dot = document.createElement('span'); dot.className = 'dot';
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = s.project || 'Sesi';
+    if (s.origin === 'cloud') { const b = document.createElement('span'); b.className = 'badge'; b.textContent = 'CLOUD'; nm.appendChild(b); }
     if (s.title) { const sm = document.createElement('small'); sm.textContent = s.title; nm.appendChild(sm); }
     const tm = document.createElement('span'); tm.className = 'tm';
     tm.textContent = [CL_STATUS[s.status] || s.status, s.context != null ? `ctx ${s.context}%` : '', relTime(s.updatedAt)].filter(Boolean).join(' · ');
@@ -764,7 +765,14 @@ function clRenderSessions() {
     const meta = [s.model, s.cost != null ? `~$${Number(s.cost).toFixed(2)} sesi ini` : '', s.cwd].filter(Boolean).join(' · ');
     if (meta) { const p = document.createElement('p'); p.className = 'dim'; p.textContent = meta; more.appendChild(p); }
     const row = document.createElement('div'); row.className = 'row';
-    if (s.cwd) {
+    if (s.cloudId) {
+      const b1 = document.createElement('button'); b1.className = 'chip'; b1.textContent = 'Buka di claude.ai ↗';
+      b1.onclick = (e) => { e.stopPropagation(); api.claude.openCloudSession(s.cloudId); };
+      const b2 = document.createElement('button'); b2.className = 'chip'; b2.textContent = 'Salin perintah teleport';
+      b2.title = 'Lanjutkan sesi cloud ini di terminal laptop (dari folder repo yang sama)';
+      b2.onclick = (e) => { e.stopPropagation(); api.claude.copy(`claude --teleport ${s.cloudId}`); b2.textContent = 'Tersalin'; setTimeout(() => { b2.textContent = 'Salin perintah teleport'; }, 1500); };
+      row.append(b1, b2);
+    } else if (s.cwd) {
       const b1 = document.createElement('button'); b1.className = 'chip'; b1.textContent = 'Buka folder';
       b1.onclick = (e) => { e.stopPropagation(); api.claude.openFolder(s.cwd); };
       const b2 = document.createElement('button'); b2.className = 'chip'; b2.textContent = 'Salin perintah lanjut';
@@ -819,7 +827,36 @@ $('clInstall').onclick = async () => {
   mood('happy', 1400);
 };
 $('clClear').onclick = () => api.claude.clear();
-$('clCloud').onclick = () => api.claude.openCloud();
+// Panel sesi cloud: alamat publik (Tailscale Funnel), token, dan isi hook untuk repo.
+function clRenderCloud() {
+  const c = (cl.state && cl.state.cloud) || {};
+  if (document.activeElement !== $('clCloudUrl')) $('clCloudUrl').value = c.url || '';
+  if (document.activeElement !== $('clCloudToken')) $('clCloudToken').value = c.token || '';
+  $('clCloudStatus').textContent = c.last ? `· kabar terakhir ${relTime(c.last)}` : '· belum ada kabar';
+}
+$('clCloud').onclick = () => { $('clCloudBox').hidden = false; clRenderCloud(); };
+$('clCloudClose').onclick = () => { $('clCloudBox').hidden = true; };
+$('clCloudOpen').onclick = () => api.claude.openCloud();
+async function clSaveCloud() {
+  const c = (cl.state && cl.state.cloud) || {};
+  const v = { url: $('clCloudUrl').value };
+  if ($('clCloudToken').value.trim() !== (c.token || '')) v.token = $('clCloudToken').value;
+  const r = await api.claude.setCloud(v);
+  $('clCloudStatus').textContent = r.ok ? '· tersimpan' : `· ${r.error}`;
+  return r.ok;
+}
+$('clCloudSave').onclick = clSaveCloud;
+function clFlash(btn, text) { const old = btn.textContent; btn.textContent = text; setTimeout(() => { btn.textContent = old; }, 1500); }
+$('clCloudFunnel').onclick = () => {
+  const port = (cl.state && cl.state.port) || 47723;
+  api.claude.copy(`tailscale funnel --bg --https=10000 http://127.0.0.1:${port}`);
+  clFlash($('clCloudFunnel'), 'Tersalin');
+};
+$('clCloudSnippet').onclick = async () => {
+  if (!(await clSaveCloud())) return;
+  api.claude.copy(await api.claude.cloudSnippet());
+  clFlash($('clCloudSnippet'), 'Tersalin');
+};
 
 // ---- chat ----
 let clAiEl = null;
@@ -909,7 +946,7 @@ if (api && api.claude) {
     clAiEl.textContent += d;
     $('clLog').scrollTop = $('clLog').scrollHeight;
   });
-  api.claude.onState((st) => { cl.state = st; clRenderSessions(); });
+  api.claude.onState((st) => { cl.state = st; clRenderSessions(); if (!$('clCloudBox').hidden) clRenderCloud(); });
   api.claude.onAlert((a) => {
     const s = a.session || {};
     const who = s.project || 'Claude Code';

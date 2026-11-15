@@ -473,6 +473,11 @@ ipcMain.on('claude:stop', () => { if (chat) chat.stop(); });
 ipcMain.handle('claude:install', () => (monitor ? monitor.install() : { ok: false }));
 ipcMain.handle('claude:uninstall', () => (monitor ? monitor.uninstall() : { ok: false }));
 ipcMain.on('claude:clear', () => { if (monitor) monitor.clearFinished(); });
+ipcMain.handle('claude:setCloud', (_e, v) => (monitor ? monitor.setCloud(v || {}) : { ok: false }));
+ipcMain.handle('claude:cloudSnippet', () => (monitor ? monitor.cloudSnippet() : ''));
+ipcMain.on('claude:openCloudSession', (_e, id) => {
+  if (/^(cse|session)_[A-Za-z0-9]{8,64}$/.test(String(id))) shell.openExternal(`${CLOUD_URL}/${id}`);
+});
 ipcMain.on('claude:openFolder', (_e, dir) => { if (dir && fs.existsSync(String(dir))) shell.openPath(String(dir)); });
 // Sesi cloud tidak punya API untuk dibaca dari laptop: buka daftarnya di browser.
 const CLOUD_URL = 'https://claude.ai/code';
