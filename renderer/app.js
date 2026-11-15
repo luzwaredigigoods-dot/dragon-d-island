@@ -681,7 +681,7 @@ $('noteClear').onclick = () => {
 // Tab Chat: chat cepat lewat Claude API (claude-chat.js). Kunci API tidak pernah sampai ke tampilan.
 let prayBusy = false, claudeBusy = false;
 const cl = { state: null, chat: null, tab: load('clTab', 'sessions'), busy: false, model: load('clModel', 'claude-opus-5-5'), open: new Set(), flash: null };
-const CL_STATUS = { working: 'Bekerja', permission: 'Butuh izin', done: 'Selesai', error: 'Error', idle: 'Menunggu', ended: 'Ditutup' };
+const CL_STATUS = { working: 'Bekerja', permission: 'Butuh izin', done: 'Selesai', error: 'Error', idle: 'Menunggu', ended: 'Ditutup', stale: 'Tanpa kabar' };
 function relTime(t) {
   const sec = Math.max(0, (Date.now() - t) / 1000);
   if (sec < 45) return 'baru saja';

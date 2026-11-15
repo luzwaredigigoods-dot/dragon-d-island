@@ -14,6 +14,10 @@ const crypto = require('crypto');
 const PORT = Number(process.env.PULAU_CLAUDE_PORT) || 47723;
 const BASE = '/dragon-island';
 const DAY = 24 * 60 * 60 * 1000;
+// Sesi "Bekerja" yang tidak mengirim kabar selama ini dianggap "Tanpa kabar": kabar "selesai"-nya
+// mungkin hilang (mesin cloud mati, laptop offline, hook gagal). Saat Claude benar-benar bekerja,
+// setiap alat yang dipakai mengirim kabar, jadi jeda sepanjang ini jarang terjadi.
+const STALE_MS = Number(process.env.PULAU_CLAUDE_STALE_MS) || 15 * 60 * 1000;
 // Event yang dipasang ke ~/.claude/settings.json
 const EVENTS = ['SessionStart', 'UserPromptSubmit', 'PostToolUse', 'PermissionRequest', 'Notification', 'Stop', 'StopFailure', 'SessionEnd'];
 
@@ -59,9 +63,11 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
 
   function snapshot() {
     const cut = Date.now() - DAY;
-    const rank = { permission: 0, working: 1, error: 2, done: 3, idle: 4, ended: 5 };
+    const rank = { permission: 0, working: 1, error: 2, stale: 3, done: 4, idle: 5, ended: 6 };
+    const now = Date.now();
     const list = Object.values(sessions)
       .filter((s) => s.updatedAt >= cut && !s.hidden)
+      .map((s) => (s.status === 'working' && now - s.updatedAt > STALE_MS ? { ...s, status: 'stale', detail: `Tanpa kabar sejak: ${s.detail || 'mulai bekerja'}` } : s))
       .sort((a, b) => (rank[a.status] - rank[b.status]) || (b.updatedAt - a.updatedAt));
     return {
       sessions: list,
@@ -354,11 +360,20 @@ PY
   }
 
   function clearFinished() {
-    for (const s of Object.values(sessions)) if (s.status === 'done' || s.status === 'ended' || s.status === 'idle') s.hidden = true;
+    const now = Date.now();
+    for (const s of Object.values(sessions)) {
+      const stale = s.status === 'working' && now - s.updatedAt > STALE_MS;
+      if (stale || s.status === 'done' || s.status === 'ended' || s.status === 'idle' || s.status === 'error') s.hidden = true;
+    }
     changed();
   }
 
-  function close() { try { server.close(); } catch (_) { /* sudah tutup */ } }
+  // Sesi yang diam tidak mengirim kabar, jadi tampilan diperbarui berkala agar status "Tanpa kabar" muncul.
+  const staleTimer = setInterval(() => {
+    if (Object.values(sessions).some((x) => x.status === 'working' && !x.hidden)) onChange(snapshot());
+  }, Math.min(30000, Math.max(500, Math.floor(STALE_MS / 3))));
+
+  function close() { clearInterval(staleTimer); try { server.close(); } catch (_) { /* sudah tutup */ } }
 
   return { snapshot, install, uninstall, clearFinished, close, handleHook, handleStatusLine, setCloud, cloudSnippet };
 }
