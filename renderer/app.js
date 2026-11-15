@@ -737,9 +737,13 @@ function fmtReset(sec) {
 }
 function clUsageNote() {
   const st = cl.state || {};
+  const seen = st.statusSeen || {};
   if (!st.installed) return 'Klik "Pasang" di bawah supaya Claude Code di laptop ini mengirim data sisa usage.';
   if (st.statusLine === 'other') return 'Status line Claude Code Anda dipakai skrip lain, jadi data usage tidak sampai ke sini. Klik "Pakai status line pulau" untuk menggantinya (yang lama disimpan dan dikembalikan saat hooks dilepas).';
-  return 'Data dikirim status line Claude Code setiap kali Claude membalas di terminal atau VS Code (paket Pro/Max). Sesi cloud tidak mengirim data ini.';
+  if (st.statusLine === 'none') return 'Status line pulau belum terpasang di settings.json Claude Code. Klik "Lepas" lalu "Pasang" lagi di bawah.';
+  if (!seen.at) return 'Status line belum pernah mengirim data. Status line hanya berjalan di Claude Code terminal atau VS Code, tidak di aplikasi Claude Desktop dan sesi cloud. Buka Claude Code di terminal, kirim satu pesan, lalu lihat lagi. Klik "Uji status line" untuk memeriksa skripnya.';
+  if (!seen.withLimits) return `Status line mengirim data (terakhir ${relTime(seen.at)}), tapi tanpa batas pemakaian. Claude Code hanya menyertakannya untuk langganan Pro, Max, atau Ultra yang login lewat claude.ai (bukan kunci API), setelah Claude membalas pertama kali di sesi itu.`;
+  return 'Data dikirim status line Claude Code setiap kali Claude membalas di terminal atau VS Code. Sesi Desktop dan cloud tidak mengirim data ini.';
 }
 function clRenderUsage() {
   const el = $('clUsage');
@@ -782,7 +786,18 @@ function clRenderUsageBox() {
   $('clUsageNote').textContent = clUsageNote();
   const st = cl.state || {};
   $('clUsageStatus').hidden = !(st.installed && st.statusLine === 'other');
+  $('clUsageTest').hidden = !(st.installed && st.statusLine === 'ours');
+  if (st.statusSeen && st.statusSeen.test && st.statusSeen.test.ok) $('clUsageTest').textContent = 'Uji berhasil ✓';
 }
+$('clUsageTest').onclick = async () => {
+  const b = $('clUsageTest');
+  b.textContent = 'Menguji…';
+  const r = await api.claude.testStatusLine();
+  b.textContent = r && r.ok ? 'Uji berhasil ✓' : 'Uji gagal';
+  if (r && r.ok) $('clUsageNote').textContent = 'Skrip status line bekerja: data dari Claude Code akan sampai ke sini. Bila sisa usage tetap kosong, berarti Claude Code tidak menjalankan status line (aplikasi Desktop/cloud) atau tidak mengirim batas pemakaian (bukan Pro/Max/Ultra).';
+  else $('clUsageNote').textContent = `Skrip status line gagal: ${(r && r.error) || 'tidak diketahui'}. Kirim isi file log (menu tray > Buka file log) ke saya.`;
+  setTimeout(() => { b.textContent = 'Uji status line'; }, 6000);
+};
 $('clUsage').onclick = () => { if (cl.tab === 'chat') return; $('clUsageBox').hidden = false; clRenderUsageBox(); };
 $('clUsageClose').onclick = () => { $('clUsageBox').hidden = true; };
 $('clUsageStatus').onclick = async () => {

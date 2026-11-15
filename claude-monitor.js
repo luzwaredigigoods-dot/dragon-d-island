@@ -40,10 +40,13 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
   const stateFile = path.join(userDataDir, 'claude-sessions.json');
   let sessions = {};
   let limits = null; // { five_hour, seven_day, model, at }
+  // Diagnosis sisa usage: kapan status line terakhir mengirim data, dan apakah ada rate_limits di dalamnya.
+  let statusSeen = { at: 0, withLimits: 0, test: null };
   try {
     const s = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
     sessions = s.sessions || {};
     limits = s.limits || null;
+    statusSeen = { ...statusSeen, ...(s.statusSeen || {}), test: null };
   } catch (_) { /* belum ada */ }
   if (!settings.hookToken) { settings.hookToken = crypto.randomBytes(18).toString('hex'); saveSettings(); }
   const token = settings.hookToken;
@@ -57,7 +60,7 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
     saveTimer = setTimeout(() => {
       const cut = Date.now() - 3 * DAY;
       for (const [id, s] of Object.entries(sessions)) if (s.updatedAt < cut) delete sessions[id];
-      try { fs.writeFileSync(stateFile, JSON.stringify({ sessions, limits })); } catch (_) { /* abaikan */ }
+      try { fs.writeFileSync(stateFile, JSON.stringify({ sessions, limits, statusSeen: { at: statusSeen.at, withLimits: statusSeen.withLimits } })); } catch (_) { /* abaikan */ }
     }, 400);
   }
 
@@ -72,6 +75,7 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
     return {
       sessions: list,
       limits,
+      statusSeen,
       installed: hooksInstalled(),
       statusLine: statusLineState(),
       listening,
@@ -161,7 +165,15 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
   function handleStatusLine(j) {
     const id = String(j.session_id || '');
     const now = Date.now();
-    if (j.rate_limits && (j.rate_limits.five_hour || j.rate_limits.seven_day)) {
+    const isTest = id === 'dragon-island-uji';
+    const hasLimits = !!(j.rate_limits && (j.rate_limits.five_hour || j.rate_limits.seven_day));
+    if (isTest) statusSeen.test = { at: now, ok: true };
+    else {
+      if (now - statusSeen.at > 60000) log('claude: status line', hasLimits ? 'dengan rate_limits' : 'tanpa rate_limits');
+      statusSeen.at = now;
+      if (hasLimits) statusSeen.withLimits = now;
+    }
+    if (hasLimits) {
       limits = { five_hour: j.rate_limits.five_hour || null, seven_day: j.rate_limits.seven_day || null, at: now };
     }
     if (id && sessions[id]) {
@@ -284,6 +296,32 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
     return { ok: true };
   }
 
+  // Menjalankan skrip status line pulau sekali dengan data contoh, persis seperti Claude Code menjalankannya,
+  // untuk memastikan PowerShell, skrip, dan server lokal bekerja.
+  function testStatusLine() {
+    return new Promise((resolve) => {
+      if (process.platform !== 'win32') return resolve({ ok: false, error: 'Uji ini hanya untuk Windows.' });
+      try { fs.copyFileSync(path.join(appDir, 'statusline.ps1'), statusScriptPath()); } catch (_) { /* pakai yang ada */ }
+      statusSeen.test = null;
+      const { spawn } = require('child_process');
+      const p = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', statusScriptPath(),
+        '-Url', `http://127.0.0.1:${PORT}${BASE}/statusline`, '-Token', token, '-Tag', 'dragon'], { windowsHide: true });
+      let out = '', err = '';
+      const timer = setTimeout(() => { try { p.kill(); } catch (_) { /* sudah selesai */ } }, 15000);
+      p.stdout.on('data', (d) => { out += d; });
+      p.stderr.on('data', (d) => { err += d; });
+      p.on('error', (e) => { clearTimeout(timer); resolve({ ok: false, error: `PowerShell tidak bisa dijalankan: ${e.message}` }); });
+      p.on('close', () => {
+        clearTimeout(timer);
+        const ok = !!(statusSeen.test && statusSeen.test.ok);
+        log('claude: uji status line', ok ? 'berhasil' : 'gagal', clip(out.trim(), 80), clip(err.trim(), 200));
+        changed();
+        resolve(ok ? { ok: true } : { ok: false, error: clip(err.trim() || out.trim() || 'Skrip berjalan tapi data tidak sampai ke pulau.', 200) });
+      });
+      p.stdin.end(JSON.stringify({ session_id: 'dragon-island-uji', model: { display_name: 'Uji' } }));
+    });
+  }
+
   function install() {
     let cfg;
     try { cfg = readClaudeSettings(); } catch (err) {
@@ -399,7 +437,7 @@ PY
 
   function close() { clearInterval(staleTimer); try { server.close(); } catch (_) { /* sudah tutup */ } }
 
-  return { snapshot, install, uninstall, useStatusLine, clearFinished, close, handleHook, handleStatusLine, setCloud, cloudSnippet };
+  return { snapshot, install, uninstall, useStatusLine, testStatusLine, clearFinished, close, handleHook, handleStatusLine, setCloud, cloudSnippet };
 }
 
 module.exports = { createMonitor, PORT, EVENTS };

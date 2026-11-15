@@ -489,6 +489,7 @@ ipcMain.handle('claude:ask', (_e, text, model) => (chat ? chat.ask(text, model) 
 ipcMain.on('claude:reset', () => { if (chat) chat.reset(); });
 ipcMain.on('claude:stop', () => { if (chat) chat.stop(); });
 ipcMain.handle('claude:install', () => (monitor ? monitor.install() : { ok: false }));
+ipcMain.handle('claude:testStatusLine', () => (monitor ? monitor.testStatusLine() : { ok: false }));
 ipcMain.handle('claude:useStatusLine', () => (monitor ? monitor.useStatusLine() : { ok: false }));
 ipcMain.handle('claude:uninstall', () => (monitor ? monitor.uninstall() : { ok: false }));
 ipcMain.on('claude:clear', () => { if (monitor) monitor.clearFinished(); });

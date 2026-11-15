@@ -222,6 +222,13 @@ test('status line: baris status untuk Claude Code dan batas pemakaian 5 jam / 7 
   assert.match(readClaude().statusLine.command, /statusline\.ps1.*-Tag dragon/, 'status line pulau terpasang');
   assert.match(await win.textContent('#clUsageNote'), /dipasang/);
   await win.click('#clUsageClose');
+  await win.click('#clUsage');
+  await sleep(150);
+  assert.equal(await win.$eval('#clUsageTest', (e) => e.hidden), false, 'tombol uji muncul untuk status line pulau');
+  assert.match(await win.textContent('#clUsageNote'), /terminal atau VS Code/);
+  const uji = await win.evaluate(() => window.api.claude.testStatusLine());
+  if (process.platform !== 'win32') assert.equal(uji.ok, false);
+  await win.click('#clUsageClose');
 
   // Waktu reset sudah lewat: jatah dianggap penuh lagi.
   await post('statusline', { session_id: 's1', rate_limits: { five_hour: { used_percentage: 80, resets_at: now - 60 }, seven_day: { used_percentage: 91, resets_at: now + 400000 } } });
@@ -447,4 +454,23 @@ test('sesi lokal: tombol Buka sesi membuka Claude Desktop, memakai id sesi Deskt
   assert.deepEqual((await app.evaluate(() => global.__opened)).slice(1), [`claude://resume?session=${cli}`]);
   await hook(cli, '/home/dok/catatan', 'SessionEnd', { reason: 'other' });
   await win.click(sel);
+});
+
+test('diagnosis sisa usage: belum ada kiriman, lalu kiriman tanpa batas pemakaian', async () => {
+  const { win } = t;
+  await win.click('#clInstall');
+  await sleep(400);
+  // Kondisi awal tiruan: status line pulau terpasang tapi belum pernah mengirim data.
+  await post('statusline', { session_id: 'baru', model: { display_name: 'Sonnet 5.5' } });
+  await sleep(300);
+  await t.open();
+  await t.page(6);
+  await win.click('#clTabSessions');
+  await win.click('#clUsage');
+  await sleep(150);
+  const note = await win.textContent('#clUsageNote');
+  assert.match(note, /status line|Status line/);
+  await win.click('#clUsageClose');
+  const log = fs.readFileSync(path.join(t.dir, 'dragon-island.log'), 'utf8');
+  assert.match(log, /status line (dengan|tanpa) rate_limits/);
 });
