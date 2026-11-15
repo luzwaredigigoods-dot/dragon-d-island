@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('api', {
     uninstall: () => ipcRenderer.invoke('claude:uninstall'),
     clear: () => ipcRenderer.send('claude:clear'),
     openFolder: (dir) => ipcRenderer.send('claude:openFolder', dir),
+    openUsage: () => ipcRenderer.send('claude:openUsage'),
     testStatusLine: () => ipcRenderer.invoke('claude:testStatusLine'),
     useStatusLine: () => ipcRenderer.invoke('claude:useStatusLine'),
     openLocalSession: (id) => ipcRenderer.invoke('claude:openLocalSession', id),

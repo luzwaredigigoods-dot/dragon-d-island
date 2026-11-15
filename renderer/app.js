@@ -789,6 +789,7 @@ function clRenderUsageBox() {
   $('clUsageTest').hidden = !(st.installed && st.statusLine === 'ours');
   if (st.statusSeen && st.statusSeen.test && st.statusSeen.test.ok) $('clUsageTest').textContent = 'Uji berhasil ✓';
 }
+$('clUsageWeb').onclick = () => api.claude.openUsage();
 $('clUsageTest').onclick = async () => {
   const b = $('clUsageTest');
   b.textContent = 'Menguji…';

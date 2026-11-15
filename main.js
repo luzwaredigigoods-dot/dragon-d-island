@@ -570,6 +570,7 @@ function openClaude(pathPart) {
   shell.openExternal(web);
 }
 ipcMain.on('claude:openCloud', () => openClaude('code'));
+ipcMain.on('claude:openUsage', () => openClaude('settings/usage'));
 ipcMain.on('claude:copy', (_e, text) => { try { clipboard.writeText(String(text)); } catch (_) { /* abaikan */ } });
 // ---------- Ikon ----------
 function expandEnv(p) {

@@ -226,6 +226,10 @@ test('status line: baris status untuk Claude Code dan batas pemakaian 5 jam / 7 
   await sleep(150);
   assert.equal(await win.$eval('#clUsageTest', (e) => e.hidden), false, 'tombol uji muncul untuk status line pulau');
   assert.match(await win.textContent('#clUsageNote'), /terminal atau VS Code/);
+  await t.app.evaluate(({ shell, app: a }) => { global.__opened = []; shell.openExternal = async (u) => { global.__opened.push(u); }; a.getApplicationNameForProtocol = () => ''; });
+  await win.click('#clUsageWeb');
+  await sleep(200);
+  assert.deepEqual(await t.app.evaluate(() => global.__opened), ['https://claude.ai/settings/usage']);
   const uji = await win.evaluate(() => window.api.claude.testStatusLine());
   if (process.platform !== 'win32') assert.equal(uji.ok, false);
   await win.click('#clUsageClose');
