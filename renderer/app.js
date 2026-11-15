@@ -442,7 +442,7 @@ let HINT_TEXT = 'Seret file ke sini, atau klik untuk memilih aplikasi';
 if (api && api.onAdmin) api.onAdmin((on) => {
   if (!on) return;
   // Windows memblokir seret-lepas dari Explorer ke aplikasi yang berjalan sebagai administrator.
-  HINT_TEXT = 'Pulau berjalan sebagai administrator, jadi seret file diblokir Windows. Klik untuk memilih aplikasi.';
+  HINT_TEXT = 'Dragon Dynamic Island berjalan sebagai administrator, jadi seret file diblokir Windows. Klik untuk memilih aplikasi.';
   $('shelfHint').querySelector('span').textContent = HINT_TEXT;
 });
 function hintMessage(text) {

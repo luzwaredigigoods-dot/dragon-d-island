@@ -5,6 +5,41 @@ const { spawn } = require('child_process');
 
 const WIN_H = 320;
 const isWin = process.platform === 'win32';
+
+// Tes otomatis memakai folder data terpisah, supaya todo, shelf, catatan, dan pengaturan
+// pengguna tidak tersentuh (lihat tests/helpers.js).
+if (process.env.PULAU_USER_DATA) {
+  app.setPath('userData', process.env.PULAU_USER_DATA);
+  app.setPath('documents', path.join(process.env.PULAU_USER_DATA, 'Documents'));
+}
+
+const APP_NAME = 'Dragon Dynamic Island';
+const APP_ID = 'com.dragondynamicisland.app';
+const OLD_NAME = 'Pulau'; // nama aplikasi sebelum versi 3.2
+
+// Pindahan data dari versi lama bernama "Pulau" (todo, shelf, catatan, pengaturan), sekali saja.
+// Electron sudah membuat folder data baru sebelum kode ini berjalan, jadi "sudah pindah" ditandai
+// dengan file penanda, bukan dengan ada-tidaknya folder. Penanda baru ditulis setelah penyalinan
+// berhasil, supaya penyalinan yang terputus diulang saat aplikasi dibuka lagi.
+let migration = '';
+if (!process.env.PULAU_USER_DATA) {
+  try {
+    const oldDir = path.join(app.getPath('appData'), OLD_NAME);
+    const newDir = app.getPath('userData');
+    const marker = path.join(newDir, '.pindahan-dari-pulau');
+    if (oldDir !== newDir && !fs.existsSync(marker)) {
+      if (fs.existsSync(oldDir)) {
+        const skip = /^(lockfile|LOCK|Singleton.*|Cache|Code Cache|GPUCache|DawnGraphiteCache|DawnWebGPUCache|Crashpad|DevToolsActivePort)$/i;
+        fs.cpSync(oldDir, newDir, { recursive: true, force: true, filter: (src) => !skip.test(path.basename(src)) });
+        migration = `data lama disalin dari ${oldDir}`;
+      }
+      fs.mkdirSync(newDir, { recursive: true });
+      fs.writeFileSync(marker, new Date().toISOString());
+    }
+  } catch (err) {
+    migration = `gagal menyalin data lama: ${String(err).slice(0, 200)}`;
+  }
+}
 const MEDIA_SCRIPT = path.join(__dirname, 'media.ps1').replace('app.asar', 'app.asar.unpacked');
 const WINWATCH_SCRIPT = path.join(__dirname, 'winwatch.ps1').replace('app.asar', 'app.asar.unpacked');
 const ICON_SCRIPT = path.join(__dirname, 'iconhelper.ps1').replace('app.asar', 'app.asar.unpacked');
@@ -19,12 +54,12 @@ let quitting = false;
 let isAdmin = false; // berjalan sebagai administrator: Windows memblokir seret-lepas dari Explorer
 
 // ---------- Log & pengaturan ----------
-// Catatan diagnosis di %APPDATA%\Pulau\pulau.log (menu tray: "Buka file log").
+// Catatan diagnosis di %APPDATA%\Dragon Dynamic Island\dragon-island.log (menu tray: "Buka file log").
 let logPath = '';
 function log(...parts) {
   try {
     if (!logPath) {
-      logPath = path.join(app.getPath('userData'), 'pulau.log');
+      logPath = path.join(app.getPath('userData'), 'dragon-island.log');
       try { if (fs.statSync(logPath).size > 300000) fs.renameSync(logPath, logPath + '.lama'); } catch (_) { /* belum ada */ }
     }
     const line = `${new Date().toISOString()} ${parts.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ')}\n`;
@@ -77,7 +112,7 @@ function createCatcher() {
   catcher.setAlwaysOnTop(true, 'screen-saver');
   catcher.setMenuBarVisibility(false);
   catcher.loadFile(path.join(__dirname, 'catcher.html'));
-  // Pulau harus selalu berada di atas jendela penangkap.
+  // Jendela pulau harus selalu berada di atas jendela penangkap.
   const raise = () => { if (win && !win.isDestroyed() && win.isVisible()) win.moveTop(); };
   catcher.on('focus', raise);
   catcher.on('show', raise);
@@ -125,7 +160,7 @@ function createWindow() {
 function createTray() {
   const icon = nativeImage.createFromPath(path.join(__dirname, 'tray.png'));
   tray = new Tray(icon.resize({ width: 16, height: 16, quality: 'best' }));
-  tray.setToolTip('Pulau');
+  tray.setToolTip(APP_NAME);
   buildTrayMenu();
   tray.on('click', toggleVisible);
 }
@@ -170,19 +205,28 @@ function buildTrayMenu() {
 function makeDesktopShortcut(force) {
   if (!isWin || !app.isPackaged && !force) return;
   try {
-    const flag = path.join(app.getPath('userData'), 'shortcut-dibuat');
+    const flag = path.join(app.getPath('userData'), 'shortcut-dibuat-v2');
     if (!force && fs.existsSync(flag)) return;
-    const link = path.join(app.getPath('desktop'), 'Pulau.lnk');
+    const desktop = app.getPath('desktop');
+    const link = path.join(desktop, APP_NAME + '.lnk');
     shell.writeShortcutLink(link, fs.existsSync(link) ? 'update' : 'create', {
       target: process.execPath,
       cwd: path.dirname(process.execPath),
-      description: 'Pulau - dynamic island',
+      description: APP_NAME,
       icon: process.execPath,
       iconIndex: 0,
-      appUserModelId: 'com.pulau.app',
+      appUserModelId: APP_ID,
     });
     fs.writeFileSync(flag, new Date().toISOString());
-  } catch (_) { /* Desktop tidak bisa ditulisi */ }
+    log('shortcut Desktop dibuat:', path.basename(link));
+    // Shortcut lama "Pulau" dihapus, tetapi hanya bila memang menunjuk ke Pulau.exe.
+    const old = path.join(desktop, OLD_NAME + '.lnk');
+    if (fs.existsSync(old)) {
+      try {
+        if (/(^|[\\/])Pulau\.exe$/i.test(shell.readShortcutLink(old).target || '')) { fs.unlinkSync(old); log('shortcut lama dihapus:', path.basename(old)); }
+      } catch (_) { /* biarkan */ }
+    }
+  } catch (err) { log('shortcut Desktop gagal:', String(err)); }
 }
 
 function toggleVisible() {
@@ -597,10 +641,10 @@ ipcMain.handle('shelf:info', (_e, filePath) => fileInfo(String(filePath)));
 // ---------- Notes ----------
 ipcMain.handle('clip:read', () => { try { return clipboard.readText(); } catch (_) { return ''; } });
 ipcMain.on('clip:write', (_e, text) => { try { clipboard.writeText(String(text)); } catch (err) { log('clipboard gagal:', String(err)); } });
-// Menyimpan catatan sebagai file .txt di Documents\Pulau Notes (nama file = tanggal & jam).
+// Menyimpan catatan sebagai file .txt di Documents\Dragon Dynamic Island Notes (nama file = tanggal & jam).
 ipcMain.handle('note:save', (_e, text) => {
   try {
-    const dir = path.join(app.getPath('documents'), 'Pulau Notes');
+    const dir = path.join(app.getPath('documents'), APP_NAME + ' Notes');
     fs.mkdirSync(dir, { recursive: true });
     const d = new Date();
     const pad = (n) => String(n).padStart(2, '0');
@@ -620,7 +664,7 @@ ipcMain.on('shelf:open', (_e, filePath) => { if (!openSpecial(filePath)) shell.o
 ipcMain.on('shelf:reveal', (_e, filePath) => { if (!openSpecial(filePath)) shell.showItemInFolder(filePath); });
 ipcMain.handle('shelf:specials', () => Object.keys(SPECIAL).map((id) => ({ path: id, name: SPECIAL[id].name })));
 ipcMain.on('shelf:drag', async (e, filePath) => {
-  if (SPECIAL[filePath]) return;
+  if (SPECIAL[filePath] || !fs.existsSync(String(filePath))) return; // file sudah dihapus: tidak ada yang bisa diseret
   try {
     const icon = await app.getFileIcon(filePath, { size: 'normal' });
     e.sender.startDrag({ file: filePath, icon });
@@ -632,9 +676,10 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.whenReady().then(() => {
-    if (isWin) app.setAppUserModelId('com.pulau.app');
+    if (isWin) app.setAppUserModelId(APP_ID);
     loadSettings();
-    log('=== Pulau', app.getVersion(), 'mulai ===', process.platform, process.getSystemVersion(), 'layar', screen.getPrimaryDisplay().size, 'skala', screen.getPrimaryDisplay().scaleFactor);
+    if (migration) log(migration);
+    log('===', APP_NAME, app.getVersion(), 'mulai ===', process.platform, process.getSystemVersion(), 'layar', screen.getPrimaryDisplay().size, 'skala', screen.getPrimaryDisplay().scaleFactor);
     logIntegrity();
     try { createCatcher(); } catch (err) { log('penangkap gagal dibuat:', String(err)); }
     createWindow();

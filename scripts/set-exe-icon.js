@@ -1,4 +1,4 @@
-// Menanam logo ke dalam Pulau.exe (ikon yang tampil di Explorer/Desktop/taskbar).
+// Menanam logo dan nama aplikasi ke dalam file .exe (ikon yang tampil di Explorer/Desktop/taskbar).
 const fs = require('fs');
 const ResEdit = require('resedit');
 const [exePath, icoPath] = process.argv.slice(2);
@@ -11,7 +11,8 @@ const g = groups[0];
 ResEdit.Resource.IconGroupEntry.replaceIconsForResource(res.entries, g.id, g.lang, ico.icons.map(i => i.data));
 const vi = ResEdit.Resource.VersionInfo.fromEntries(res.entries)[0];
 const lang = vi.getAllLanguagesForStringValues()[0];
-vi.setStringValues(lang, { ProductName: 'Pulau', FileDescription: 'Pulau', OriginalFilename: 'Pulau.exe', InternalName: 'Pulau', CompanyName: '', LegalCopyright: '' });
+const NAME = 'Dragon Dynamic Island';
+vi.setStringValues(lang, { ProductName: NAME, FileDescription: NAME, OriginalFilename: NAME + '.exe', InternalName: NAME, CompanyName: '', LegalCopyright: '' });
 vi.outputToResourceEntries(res.entries);
 res.outputResource(exe);
 fs.writeFileSync(exePath, Buffer.from(exe.generate()));

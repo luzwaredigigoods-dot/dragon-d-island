@@ -1,19 +1,21 @@
 {
-  "name": "pulau",
-  "version": "3.1.0",
+  "name": "dragon-dynamic-island",
+  "version": "3.2.0",
   "description": "Dynamic island pribadi untuk Windows",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build:win": "bash scripts/build-win.sh"
+    "build:win": "bash scripts/build-win.sh",
+    "test": "node --test --test-concurrency=1 --test-timeout=150000 \"tests/*.test.js\""
   },
   "author": "",
   "license": "UNLICENSED",
   "devDependencies": {
     "electron": "^33.4.11",
+    "playwright": "^1.63.0",
     "png-to-ico": "^2.1.8",
     "resedit": "^1.7.2"
   },
-  "productName": "Pulau",
+  "productName": "Dragon Dynamic Island",
   "private": true
 }
