@@ -73,6 +73,14 @@ test('pasang hooks: pengaturan Claude Code lain tetap utuh, cadangan dibuat, tid
   assert.match(await t.win.textContent('#clEmpty'), /Belum ada sesi/);
 });
 
+test('tombol Sesi cloud membuka claude.ai/code di browser', async () => {
+  await t.app.evaluate(({ shell }) => { global.__opened = []; shell.openExternal = async (u) => { global.__opened.push(u); }; });
+  await t.win.click('#clCloud');
+  await sleep(200);
+  assert.deepEqual(await t.app.evaluate(() => global.__opened), ['https://claude.ai/code']);
+  assert.match(await t.win.textContent('#clEmpty'), /Sesi cloud/);
+});
+
 test('server lokal menolak kabar tanpa token yang benar', async () => {
   assert.equal((await post('hook', { session_id: 'x', hook_event_name: 'Stop' }, {})).status, 403);
   assert.equal((await post('hook', { session_id: 'x', hook_event_name: 'Stop' }, { 'X-Dragon-Island': 'salah' })).status, 403);

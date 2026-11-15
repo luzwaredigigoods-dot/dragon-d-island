@@ -33,7 +33,7 @@ Klik **Pasang** di halaman Claude. Dragon Dynamic Island menambahkan hooks berti
 
 Batasan:
 
-- Hanya sesi **lokal** (terminal, aplikasi desktop Claude, VS Code). Sesi cloud di claude.ai/code tidak membaca pengaturan di komputer Anda, jadi tidak terpantau.
+- Hanya sesi **lokal** (terminal, aplikasi desktop Claude, VS Code). Sesi cloud di claude.ai/code tidak membaca pengaturan di komputer Anda dan tidak punya API untuk dibaca dari luar, jadi tidak terpantau. Tombol **Sesi cloud ↗** membuka daftarnya di claude.ai/code; aplikasi Claude di HP dan aplikasi desktop Claude juga menampilkannya.
 - Sesi yang sudah berjalan sebelum pemasangan baru muncul setelah ada kabar berikutnya.
 - Bila Dragon Dynamic Island sedang tidak berjalan, hook gagal tersambung. Claude Code tetap bekerja normal, tetapi bisa menampilkan catatan "hook error". Klik **Lepas** untuk mencabut hooks.
 - File transkrip Claude Code tidak dibaca, karena formatnya internal dan bisa berubah tiap versi.

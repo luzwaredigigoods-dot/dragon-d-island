@@ -474,6 +474,9 @@ ipcMain.handle('claude:install', () => (monitor ? monitor.install() : { ok: fals
 ipcMain.handle('claude:uninstall', () => (monitor ? monitor.uninstall() : { ok: false }));
 ipcMain.on('claude:clear', () => { if (monitor) monitor.clearFinished(); });
 ipcMain.on('claude:openFolder', (_e, dir) => { if (dir && fs.existsSync(String(dir))) shell.openPath(String(dir)); });
+// Sesi cloud tidak punya API untuk dibaca dari laptop: buka daftarnya di browser.
+const CLOUD_URL = 'https://claude.ai/code';
+ipcMain.on('claude:openCloud', () => { log('buka sesi cloud di browser'); shell.openExternal(CLOUD_URL); });
 ipcMain.on('claude:copy', (_e, text) => { try { clipboard.writeText(String(text)); } catch (_) { /* abaikan */ } });
 // ---------- Ikon ----------
 function expandEnv(p) {

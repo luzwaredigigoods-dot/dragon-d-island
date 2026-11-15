@@ -244,6 +244,7 @@ input, select { background: #17171a; border: 1px solid #2f2f35; color: #fff; bor
 .cl-foot { display: flex; justify-content: space-between; align-items: center; padding-top: 4px; font-size: 11px; gap: 8px; }
 .cl-foot .dim { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cl-foot .mini { margin-left: 4px; }
+.cl-foot > span:last-child { white-space: nowrap; flex: none; }
 
 #clLog { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 2px 4px 2px 0; user-select: text; }
 #clLog::-webkit-scrollbar { width: 3px; } #clLog::-webkit-scrollbar-thumb { background: #55555a; border-radius: 2px; }

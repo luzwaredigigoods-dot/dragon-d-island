@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('api', {
     uninstall: () => ipcRenderer.invoke('claude:uninstall'),
     clear: () => ipcRenderer.send('claude:clear'),
     openFolder: (dir) => ipcRenderer.send('claude:openFolder', dir),
+    openCloud: () => ipcRenderer.send('claude:openCloud'),
     copy: (text) => ipcRenderer.send('claude:copy', text),
     onDelta: (cb) => ipcRenderer.on('claude:delta', (_e, d) => cb(d)),
     onState: (cb) => ipcRenderer.on('claude:state', (_e, s) => cb(s)),

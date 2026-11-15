@@ -747,7 +747,7 @@ function clRenderSessions() {
   if (!st) empty = 'Memuat…';
   else if (!st.listening) empty = `Port ${st.port} sedang dipakai aplikasi lain, jadi kabar dari Claude Code tidak bisa diterima.`;
   else if (!st.installed) empty = 'Klik "Pasang" agar sesi Claude Code di komputer ini muncul di sini, lengkap dengan kabar saat selesai atau butuh izin. Ini menambahkan hooks ke settings.json Claude Code (cadangan dibuat otomatis).';
-  else if (!sessions.length) empty = 'Belum ada sesi Claude Code dalam 24 jam terakhir. Sesi yang berjalan setelah pemasangan akan muncul di sini.';
+  else if (!sessions.length) empty = 'Belum ada sesi Claude Code lokal dalam 24 jam terakhir. Sesi yang berjalan setelah pemasangan akan muncul di sini. Sesi cloud: klik "Sesi cloud ↗".';
   $('clEmpty').textContent = empty;
   for (const s of sessions) {
     const li = document.createElement('li');
@@ -819,6 +819,7 @@ $('clInstall').onclick = async () => {
   mood('happy', 1400);
 };
 $('clClear').onclick = () => api.claude.clear();
+$('clCloud').onclick = () => api.claude.openCloud();
 
 // ---- chat ----
 let clAiEl = null;
