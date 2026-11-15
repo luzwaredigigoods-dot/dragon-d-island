@@ -350,6 +350,8 @@ input, select { background: #17171a; border: 1px solid #2f2f35; color: #fff; bor
 .lid.top.r { transform: translateY(calc((var(--top) - 1) * 40px)) rotate(calc(var(--tilt) * -1)); }
 .lid.bot { transform: translateY(calc((1 - var(--bot)) * 60px)); }
 .smile { opacity: var(--smile); transition: opacity .2s; }
+.iris-amber { opacity: 0; transition: opacity .7s ease; }
+#dragon.amber .iris-amber { opacity: 1; }
 
 /* ekspresi (urutan = prioritas, yang bawah menang) */
 #dragon.curious { --dil: 1.6; --eye: 1.05; --top: 0; }

@@ -237,6 +237,7 @@
         <radialGradient id="gHead" cx="50%" cy="30%" r="75%"><stop offset="0" stop-color="#26262b"/><stop offset="1" stop-color="#050506"/></radialGradient>
         <radialGradient id="gHead2" cx="50%" cy="70%" r="75%"><stop offset="0" stop-color="#26262b"/><stop offset="1" stop-color="#050506"/></radialGradient>
         <radialGradient id="gEye" cx="50%" cy="62%" r="68%"><stop offset="0" stop-color="#e6ff6a"/><stop offset=".5" stop-color="#66e622"/><stop offset="1" stop-color="#17700f"/></radialGradient>
+        <radialGradient id="gEyeAmber" cx="50%" cy="62%" r="68%"><stop offset="0" stop-color="#ffe08a"/><stop offset=".5" stop-color="#ff9a1f"/><stop offset="1" stop-color="#9a3d05"/></radialGradient>
         <clipPath id="cL"><ellipse cx="80" cy="54" rx="16" ry="18.5"/></clipPath>
         <clipPath id="cR"><ellipse cx="140" cy="54" rx="16" ry="18.5"/></clipPath>
       </defs>
@@ -250,6 +251,7 @@
         <circle cx="103" cy="9" r="3.2" fill="#17171a"/><circle cx="117" cy="9" r="3.2" fill="#17171a"/>
         <g transform="rotate(-7 80 54)"><g class="eye" clip-path="url(#cL)">
           <ellipse cx="80" cy="54" rx="16" ry="18.5" fill="url(#gEye)"/>
+          <ellipse class="iris-amber" cx="80" cy="54" rx="16" ry="18.5" fill="url(#gEyeAmber)"/>
           <ellipse cx="80" cy="54" rx="15.2" ry="17.7" fill="none" stroke="#0c4a0a" stroke-width="1.8" opacity=".55"/>
           <g class="pupil">
             <ellipse class="slit" cx="80" cy="54" rx="5" ry="14" fill="#020302"/>
@@ -261,6 +263,7 @@
         </g></g>
         <g transform="rotate(7 140 54)"><g class="eye" clip-path="url(#cR)">
           <ellipse cx="140" cy="54" rx="16" ry="18.5" fill="url(#gEye)"/>
+          <ellipse class="iris-amber" cx="140" cy="54" rx="16" ry="18.5" fill="url(#gEyeAmber)"/>
           <ellipse cx="140" cy="54" rx="15.2" ry="17.7" fill="none" stroke="#0c4a0a" stroke-width="1.8" opacity=".55"/>
           <g class="pupil">
             <ellipse class="slit" cx="140" cy="54" rx="5" ry="14" fill="#020302"/>

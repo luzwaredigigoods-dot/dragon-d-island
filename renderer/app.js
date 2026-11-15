@@ -50,8 +50,18 @@ if (api && api.onScale) api.onScale((k) => { K = Math.min(1.2, Math.max(0.5, Num
 // ---------- buka / tutup pulau ----------
 let hover = false, dragging = false, closeTimer = null, holdUntil = 0, lastActive = Date.now();
 let dodge = false, hidden = false, summonTimer = null, lastCursor = null;
+// Mata naga oranye: ada tugas Claude yang selesai dan belum dilihat. Kembali hijau setelah panel
+// dibuka (sebentar, supaya sempat terlihat) atau setelah 15 menit.
+let amberTimer = null;
+function amberEyes(on) {
+  clearTimeout(amberTimer);
+  dragon.classList.toggle('amber', on);
+  // Panel sedang terbuka: kabarnya sudah terlihat, jadi oranye hanya sebentar.
+  if (on) amberTimer = setTimeout(() => amberEyes(false), wrap.classList.contains('expanded') ? 6000 : 15 * 60 * 1000);
+}
 function setExpanded(on) {
   if (on && hidden) setHidden(false);
+  if (on && dragon.classList.contains('amber')) { clearTimeout(amberTimer); amberTimer = setTimeout(() => amberEyes(false), 2500); }
   wrap.classList.toggle('expanded', on);
   wrap.classList.toggle('collapsed', !on);
   dragon.classList.toggle('curious', on);
@@ -1006,7 +1016,7 @@ if (api && api.claude) {
   api.claude.onAlert((a) => {
     const s = a.session || {};
     // Suara pilihan (menu tray > Suara notifikasi Claude); "windows" = bunyi notifikasi Windows saja.
-    if (a.sound && a.sound !== 'windows' && a.sound !== 'diam') window.DragonSound.play(a.sound);
+    if (a.sound && a.sound !== 'windows' && a.sound !== 'diam') window.DragonSound.play(a.sound, a.kind);
     const who = s.project || 'Claude Code';
     if (a.kind === 'permission') {
       clSetTab('sessions');
@@ -1015,13 +1025,14 @@ if (api && api.claude) {
     } else if (a.kind === 'done') {
       cl.flash = { until: Date.now() + 10000 };
       mood('happy', 1600); mood('hop', 900);
+      amberEyes(true);
       setTimeout(clRenderPill, 10100);
     } else if (a.kind === 'error') {
       mood('sad', 1600);
     }
     clRenderPill();
   });
-  api.claude.onPlaySound((kind) => window.DragonSound.play(kind));
+  api.claude.onPlaySound((kind) => window.DragonSound.play(kind, 'permission'));
   api.claude.onOpen(() => { setHidden(false); holdUntil = Date.now() + 8000; setExpanded(true); showPage(CLAUDE_PAGE); clSetTab('sessions'); });
   api.claude.reset(); // tampilan baru dimuat: mulai percakapan baru juga di proses utama
   api.claude.status().then((st) => {

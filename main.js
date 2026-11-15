@@ -191,7 +191,7 @@ function buildTrayMenu() {
       },
       {
         label: 'Suara notifikasi Claude',
-        submenu: [['Auman naga', 'naga'], ['Dering', 'dering'], ['Lonceng', 'lonceng'], ['Bunyi bawaan Windows', 'windows'], ['Tanpa suara', 'diam']].map(([label, v]) => ({
+        submenu: [['Naga kecil', 'naga'], ['Dering', 'dering'], ['Lonceng', 'lonceng'], ['Bunyi bawaan Windows', 'windows'], ['Tanpa suara', 'diam']].map(([label, v]) => ({
           label, type: 'radio', checked: settings.claudeSound === v,
           click: () => { settings.claudeSound = v; saveSettings(); log('suara notifikasi:', v); if (v !== 'windows' && v !== 'diam') send('sound:play', v); },
         })),

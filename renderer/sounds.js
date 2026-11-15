@@ -1,6 +1,6 @@
 'use strict';
 // Suara notifikasi, disintesis dengan Web Audio (tanpa berkas audio).
-//   naga    : auman naga — geraman rendah yang naik lalu turun, dengan desis napas
+//   naga    : naga kecil — suara berbeda untuk butuh izin, selesai, dan error (berkas di renderer/sounds)
 //   dering  : dering dua nada seperti telepon
 //   lonceng : tiga nada lonceng lembut
 // Setiap fungsi mengembalikan lama bunyinya (detik).
@@ -26,39 +26,16 @@
     return s;
   }
 
-  function naga(volume = 0.5) {
-    const c = audio(), t = c.currentTime, dur = 1.9;
-    const out = c.createGain(); out.gain.value = volume; out.connect(c.destination);
-    // badan suara: dua gelombang gergaji sedikit berbeda nada, naik lalu turun
-    const body = c.createGain();
-    body.gain.setValueAtTime(0.0001, t);
-    body.gain.exponentialRampToValueAtTime(0.9, t + 0.25);
-    body.gain.setValueAtTime(0.9, t + 0.9);
-    body.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 6;
-    lp.frequency.setValueAtTime(260, t);
-    lp.frequency.exponentialRampToValueAtTime(1500, t + 0.45);
-    lp.frequency.exponentialRampToValueAtTime(320, t + dur);
-    const dist = shaper(c, 18);
-    for (const detune of [0, 17]) {
-      const o = c.createOscillator(); o.type = 'sawtooth'; o.detune.value = detune;
-      o.frequency.setValueAtTime(68, t);
-      o.frequency.exponentialRampToValueAtTime(150, t + 0.4);
-      o.frequency.exponentialRampToValueAtTime(52, t + dur);
-      // getaran tenggorokan
-      const lfo = c.createOscillator(), lfoGain = c.createGain();
-      lfo.frequency.value = 24; lfoGain.gain.value = 9;
-      lfo.connect(lfoGain).connect(o.frequency);
-      o.connect(dist); lfo.start(t); o.start(t); lfo.stop(t + dur); o.stop(t + dur);
-    }
-    dist.connect(lp).connect(body).connect(out);
-    // desis napas
-    const n = c.createBufferSource(); n.buffer = noiseBuffer(c, dur);
-    const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.8;
-    bp.frequency.setValueAtTime(700, t); bp.frequency.exponentialRampToValueAtTime(2200, t + 0.5); bp.frequency.exponentialRampToValueAtTime(500, t + dur);
-    const ng = c.createGain();
-    ng.gain.setValueAtTime(0.0001, t); ng.gain.exponentialRampToValueAtTime(0.35, t + 0.3); ng.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    n.connect(bp).connect(ng).connect(out); n.start(t); n.stop(t + dur);
+  // Naga kecil: suara berbeda per jenis kabar (dibuat dengan tools/cute.py).
+  //   izin    : naga bayi belajar mengaum (paling menarik perhatian)
+  //   selesai : tiga cicitan riang
+  //   error   : bersin api
+  const NAGA_FILES = { permission: ['sounds/naga-izin.mp3', 1.2], done: ['sounds/naga-selesai.mp3', 0.75], error: ['sounds/naga-error.mp3', 1.05] };
+  function naga(volume = 0.9, event = 'permission') {
+    const [src, dur] = NAGA_FILES[event] || NAGA_FILES.permission;
+    const a = new Audio(src);
+    a.volume = volume;
+    a.play().catch(() => {});
     return dur;
   }
 
@@ -100,8 +77,13 @@
   }
 
   const SOUNDS = { naga, dering, lonceng };
-  function play(kind) {
-    try { const f = SOUNDS[kind]; return f ? f() : 0; } catch (_) { return 0; } // audio tidak tersedia
+  // event: 'permission' | 'done' | 'error' (hanya membedakan suara naga).
+  function play(kind, event) {
+    try {
+      if (kind === 'naga') return naga(0.9, event);
+      const f = SOUNDS[kind];
+      return f ? f() : 0;
+    } catch (_) { return 0; } // audio tidak tersedia
   }
   root.DragonSound = { play, kinds: Object.keys(SOUNDS) };
 })(window);

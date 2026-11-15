@@ -162,6 +162,22 @@ test('kabar sesi: bekerja, butuh izin (pulau terbuka sendiri), lanjut bekerja, s
     'done|simrs-rme|Draf CPPT sudah saya tulis di cppt.md.',
   ]);
   assert.match(await t.dragonClass(), /happy/);
+  assert.match(await t.dragonClass(), /amber/, 'mata naga oranye saat tugas selesai');
+  await sleep(800);
+  assert.equal(await win.$eval('#dragon .iris-amber', (e) => getComputedStyle(e).opacity), '1');
+});
+
+test('mata oranye bertahan selama panel tertutup dan kembali hijau setelah panel dibuka', async () => {
+  const { win } = t;
+  await win.mouse.move(t.cx, 500);
+  await t.cursor(t.cx + 500, 700, 13000); // tunggu kabar sebelumnya selesai dan panel menutup
+  assert.match(await t.wrapClass(), /collapsed/);
+  await t.send('claude:alert', { kind: 'done', session: { project: 'x' }, sound: 'diam' });
+  await sleep(7000);
+  assert.match(await t.dragonClass(), /amber/, 'belum dilihat: tetap oranye');
+  await t.open();
+  await sleep(3000);
+  assert.doesNotMatch(await t.dragonClass(), /amber/, 'sudah dilihat: kembali hijau');
 });
 
 test('detail sesi: perintah terakhir dan tombol salin perintah lanjut', async () => {
@@ -377,7 +393,14 @@ test('suara notifikasi: pilihan dari menu tray tersimpan, contoh suaranya dimain
   await sleep(200);
   assert.deepEqual(await win.evaluate(() => window.__sounds), ['dering'], 'contoh suara diputar, Tanpa suara tidak berbunyi');
   for (const k of ['naga', 'dering', 'lonceng']) assert.ok(await win.evaluate((x) => window.DragonSound.play(x), k) > 0, `suara ${k} dapat dibuat`);
-  await pick('Auman naga');
+  // Naga kecil: tiga berkas suara berbeda per jenis kabar, semuanya bisa dimuat.
+  const loaded = await win.evaluate(() => Promise.all(['izin', 'selesai', 'error'].map((n) => new Promise((ok) => {
+    const a = new Audio(`sounds/naga-${n}.mp3`);
+    a.onloadedmetadata = () => ok(Math.round(a.duration * 10) / 10);
+    a.onerror = () => ok(0);
+  }))));
+  assert.ok(loaded.every((d) => d > 0.5 && d < 1.6), `durasi suara naga: ${loaded}`);
+  await pick('Naga kecil');
 });
 
 test('sesi lokal: tombol Buka sesi membuka Claude Desktop, memakai id sesi Desktop bila ada', async () => {
