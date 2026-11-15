@@ -323,7 +323,7 @@ function createMonitor({ userDataDir, settings, saveSettings, log, onChange, onA
   }
   // Isi .claude/settings.json untuk repo yang sesi cloud-nya ingin dipantau.
   function cloudSnippet() {
-    const base = settings.cloudUrl || 'https://NAMA-LAPTOP.tailnet.ts.net:10000';
+    const base = settings.cloudUrl || 'https://NAMA-LAPTOP.tailnet.ts.net';
     const h = {
       type: 'http',
       url: `${base}${BASE}/hook`,

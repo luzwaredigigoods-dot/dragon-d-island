@@ -94,7 +94,7 @@ test('panel Cloud: alamat & token tersimpan, perintah Tailscale dan hook repo bi
   assert.equal(JSON.parse(fs.readFileSync(path.join(t.dir, 'settings.json'), 'utf8')).cloudUrl, 'https://laptop.tailnet.ts.net:10000');
 
   await win.click('#clCloudFunnel');
-  assert.equal(await t.app.evaluate(({ clipboard }) => clipboard.readText()), `tailscale funnel --bg --https=10000 http://127.0.0.1:${port}`);
+  assert.equal(await t.app.evaluate(({ clipboard }) => clipboard.readText()), `tailscale funnel --bg --set-path /dragon-island http://127.0.0.1:${port}`);
   await win.click('#clCloudSnippet');
   await sleep(300);
   const snippet = JSON.parse(await t.app.evaluate(({ clipboard }) => clipboard.readText()));

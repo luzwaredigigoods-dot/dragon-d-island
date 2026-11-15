@@ -849,7 +849,8 @@ $('clCloudSave').onclick = clSaveCloud;
 function clFlash(btn, text) { const old = btn.textContent; btn.textContent = text; setTimeout(() => { btn.textContent = old; }, 1500); }
 $('clCloudFunnel').onclick = () => {
   const port = (cl.state && cl.state.port) || 47723;
-  api.claude.copy(`tailscale funnel --bg --https=10000 http://127.0.0.1:${port}`);
+  // Port 443 dengan jalur khusus: proxy jaringan sesi cloud hanya meneruskan port 443 (port lain diputus).
+  api.claude.copy(`tailscale funnel --bg --set-path /dragon-island http://127.0.0.1:${port}`);
   clFlash($('clCloudFunnel'), 'Tersalin');
 };
 $('clCloudSnippet').onclick = async () => {

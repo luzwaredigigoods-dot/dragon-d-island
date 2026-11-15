@@ -42,8 +42,8 @@ Batasan:
 
 Sesi cloud berjalan di server Anthropic dan tidak membaca pengaturan di laptop. Agar kabarnya sampai ke pulau, laptop dibuka lewat Tailscale Funnel dan tiap repo diberi hook. Semua bagian dari halaman Claude → **Cloud**:
 
-1. **Alamat publik:** isi alamat Funnel laptop, misalnya `https://nama-laptop.tailnet.ts.net:10000`, lalu **Simpan**.
-2. **Tailscale Funnel:** klik **Salin perintah Tailscale**, lalu jalankan di laptop: `tailscale funnel --bg --https=10000 http://127.0.0.1:47723`. Port 10000 dipakai agar tidak bentrok dengan layanan lain di 443/8443.
+1. **Alamat publik:** isi alamat Funnel laptop tanpa port, misalnya `https://nama-laptop.tailnet.ts.net`, lalu **Simpan**.
+2. **Tailscale Funnel:** klik **Salin perintah Tailscale**, lalu jalankan di laptop: `tailscale funnel --bg --set-path /dragon-island http://127.0.0.1:47723`. Jalur `/dragon-island` di port 443 tidak mengganggu layanan lain di port itu. Port lain (8443, 10000) tidak bisa dipakai: proxy jaringan sesi cloud hanya meneruskan port 443 (teruji 15 Nov 2026).
 3. **Environment cloud:** di claude.ai/code, buka pengaturan environment, lalu tambahkan variabel `DRAGON_ISLAND_TOKEN` berisi **Token cloud** dari panel. Pastikan alamat Funnel bisa dijangkau dari environment itu (daftar host yang diizinkan atau network secret untuk host tersebut).
 4. **Repo:** klik **Salin hook repo**, simpan sebagai `.claude/settings.json` di repo (gabungkan bila file sudah ada), commit, dan push. Token tidak tertulis di repo; hook mengambilnya dari variabel environment.
 
