@@ -11,6 +11,7 @@ Dynamic island pribadi untuk Windows: pil kecil di tepi atas layar, dengan naga 
 | Todo List | Tugas harian; yang belum selesai terbawa ke hari berikutnya |
 | Jadwal Sholat | Lima waktu sholat (kriteria Kemenag) dan pengingat sebelum serta saat masuk waktu |
 | Notes | Catatan cepat; tempel, salin, dan simpan ke `Documents\Dragon Dynamic Island Notes` sebagai `.txt` |
+| Claude | **Sesi Claude Code** di komputer ini dalam 24 jam terakhir (bekerja / butuh izin / selesai), notifikasi saat selesai atau butuh izin, batas pemakaian 5 jam & 7 hari; **chat cepat** lewat Claude API |
 
 Lainnya:
 
@@ -18,6 +19,40 @@ Lainnya:
 - **Mode menyingkir:** saat ada jendela terbuka penuh, pulau naik bersembunyi ketika kursor mendekat; dorong kursor ke tepi atas layar untuk memanggilnya.
 - **Naga:** mata mengikuti kursor, berkedip, dan berekspresi (senang, sedih, curiga, mengantuk, tidur).
 - **Tray:** tampilkan/sembunyikan (Ctrl+Alt+I), jalankan saat Windows menyala, ukuran, mode menyingkir, shortcut Desktop, dan file log.
+
+## Fitur Claude
+
+### Sesi Claude Code
+
+Klik **Pasang** di halaman Claude. Dragon Dynamic Island menambahkan hooks bertipe `http` ke `~/.claude/settings.json` (cadangan `settings.json.cadangan-dragon-*` dibuat lebih dulu; hook dan pengaturan Anda yang lain tidak diubah). Claude Code lalu mengirim kabar ke server lokal `127.0.0.1:47723` setiap kali sesi mulai bekerja, memakai alat, meminta izin, selesai, gagal, atau ditutup.
+
+- **Butuh izin:** pulau terbuka sendiri di halaman Claude, naga melompat, dan muncul notifikasi Windows.
+- **Selesai:** notifikasi Windows, tanda ✓ di pil, naga senang.
+- **Pil:** jumlah sesi yang sedang bekerja (oranye) atau "izin" (berkedip) bila ada yang menunggu.
+- Klik sebuah sesi untuk melihat perintah terakhir, membuka foldernya, atau menyalin perintah `claude --resume` untuk melanjutkannya.
+
+Batasan:
+
+- Hanya sesi **lokal** (terminal, aplikasi desktop Claude, VS Code). Sesi cloud di claude.ai/code tidak membaca pengaturan di komputer Anda, jadi tidak terpantau.
+- Sesi yang sudah berjalan sebelum pemasangan baru muncul setelah ada kabar berikutnya.
+- Bila Dragon Dynamic Island sedang tidak berjalan, hook gagal tersambung. Claude Code tetap bekerja normal, tetapi bisa menampilkan catatan "hook error". Klik **Lepas** untuk mencabut hooks.
+- File transkrip Claude Code tidak dibaca, karena formatnya internal dan bisa berubah tiap versi.
+
+### Batas pemakaian
+
+Persentase batas 5 jam dan 7 hari diambil dari *status line* Claude Code (skrip `statusline.ps1`, dipasang bersama hooks). Status line itu juga menampilkan model, konteks, dan persentase batas di Claude Code sendiri. Batasannya:
+
+- Data ini hanya ada untuk pelanggan Pro/Max dan diperbarui saat ada sesi yang berjalan.
+- Bila Anda sudah memakai status line lain, status line Anda tidak ditimpa dan persentase batas tidak ditampilkan.
+
+### Chat cepat
+
+Tab **Chat** memakai Claude API dengan model Claude Opus 5.5 (bisa diganti Sonnet 5.5 atau Haiku 5.5), effort rendah supaya cepat, dan jawaban mengalir bertahap.
+
+- **Kunci API:** dibutuhkan, dibuat di platform.claude.com. Pemakaian API ditagih terpisah dari langganan Claude.
+- **Penyimpanan kunci:** terenkripsi oleh Windows di `%APPDATA%\Dragon Dynamic Island\claude-key.bin` dan tidak pernah dikirim ke tampilan.
+- **Fallback otomatis:** untuk Opus dan Sonnet, bila model menolak permintaan karena pengaman, API mengulang di model cadangan yang sesuai.
+- **Biaya:** token dan perkiraan biaya hari ini tampil di atas chat.
 
 ## Menjalankan
 
@@ -45,7 +80,7 @@ Fitur media, deteksi jendela penuh, ikon aplikasi Store, serta My Computer/Trash
 npm test
 ```
 
-36 tes menjalankan aplikasi sungguhan (Electron, lewat Playwright) dan memeriksa pil dan panel, navigasi, media, shelf (lebar, mode Edit, urutan, ikon bawaan, pemilih aplikasi), seret file, mode menyingkir, naga, notes, waktu dan pengingat sholat, serta pemindahan data dari nama lama "Pulau". Butuh sekitar 2 menit; tes pengingat sholat menunggu sampai pergantian menit berikutnya.
+Tes menjalankan aplikasi sungguhan (Electron, lewat Playwright) dan memeriksa pil dan panel, navigasi, media, shelf (lebar, mode Edit, urutan, ikon bawaan, pemilih aplikasi), seret file, mode menyingkir, naga, notes, waktu dan pengingat sholat, pemindahan data dari nama lama "Pulau", serta fitur Claude (hooks, status line, dan chat terhadap server Claude API tiruan). Butuh sekitar 2 menit; tes pengingat sholat menunggu sampai pergantian menit berikutnya.
 
 Tes memakai folder data sementara sendiri, jadi todo, shelf, catatan, dan pengaturan Anda tidak tersentuh. Di Linux tanpa layar, jalankan lewat `xvfb-run`:
 
@@ -75,6 +110,9 @@ Hasilnya `dist/Dragon-Dynamic-Island-v<versi>-win-x64.zip`. Skrip mengunduh Elec
 | `media.ps1` | Membaca dan mengendalikan media Windows, termasuk sampul |
 | `winwatch.ps1` | Mendeteksi jendela terbuka penuh dan tombol mouse |
 | `iconhelper.ps1` | Ikon aplikasi Store dan folder khusus Windows lewat shell |
+| `claude-chat.js` | Chat cepat lewat Claude API (SDK `@anthropic-ai/sdk`), kunci terenkripsi, usage |
+| `claude-monitor.js` | Server lokal penerima hooks & status line Claude Code, status sesi, pasang/lepas hooks |
+| `statusline.ps1` | Status line Claude Code: meneruskan data sesi ke aplikasi dan mencetak baris status |
 | `scripts/` | Pembuatan zip Windows dan penanaman ikon ke `.exe` |
 | `tests/` | Tes otomatis (`npm test`); `helpers.js` menjalankan aplikasi dengan folder data sementara |
 

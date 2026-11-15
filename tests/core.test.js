@@ -27,13 +27,13 @@ test('pil menampilkan tanggal dan jam, lalu panel terbuka saat kursor di atasnya
   assert.match(await t.wrapClass(), /collapsed/);
 });
 
-test('lima halaman, tombol navigasi di bawah berputar, isi tidak menabrak baris navigasi', async () => {
+test('enam halaman, tombol navigasi di bawah berputar, isi tidak menabrak baris navigasi', async () => {
   const { win } = t;
   await t.open();
-  assert.equal(await win.$$eval('#dots i', (l) => l.length), 5);
+  assert.equal(await win.$$eval('#dots i', (l) => l.length), 6);
   await t.page(1);
   const titles = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     titles.push(await t.title());
     const overlap = await win.evaluate(() => {
       const nav = document.getElementById('navrow').getBoundingClientRect();
@@ -49,11 +49,11 @@ test('lima halaman, tombol navigasi di bawah berputar, isi tidak menabrak baris 
     await win.click('#next');
     await sleep(300);
   }
-  assert.deepEqual(titles.map((x) => x.split(' ')[0]), ['Media', 'Shelf', 'Todo', 'Jadwal', 'Notes']);
+  assert.deepEqual(titles.map((x) => x.split(' ')[0]), ['Media', 'Shelf', 'Todo', 'Jadwal', 'Notes', 'Claude']);
   assert.equal((await t.title()).split(' ')[0], 'Media', 'next dari halaman terakhir kembali ke awal');
   await win.click('#prev');
   await sleep(300);
-  assert.equal((await t.title()).split(' ')[0], 'Notes');
+  assert.equal((await t.title()).split(' ')[0], 'Claude');
 });
 
 test('media: judul, waktu, sampul, dan gelombang di pil', async () => {

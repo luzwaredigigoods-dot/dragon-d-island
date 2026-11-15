@@ -17,7 +17,9 @@ const hhmm = (min) => `${pad(Math.floor(min / 60) % 24)}:${pad(min % 60)}`;
 
 // ---------- ukuran pulau ----------
 const BASE_W = 560;
-const SHELF_PAGE = 1, PRAY_PAGE = 3;
+const SHELF_PAGE = 1, PRAY_PAGE = 3, CLAUDE_PAGE = 5;
+const BASE_H = 196, CLAUDE_H = 300; // tinggi panel; halaman Claude lebih tinggi untuk chat & daftar sesi
+let islandH = BASE_H;
 const PILL_W = 236; // lebar pil (sama dengan #island di style.css)
 let islandW = BASE_W;
 // Skala keseluruhan pulau + naga; bisa diganti dari menu tray (Ukuran).
@@ -30,14 +32,16 @@ function shelfWidth() {
 function layout() {
   const max = Math.max(BASE_W, (window.innerWidth - 80) / K);
   islandW = pageIdx === SHELF_PAGE ? Math.min(max, Math.max(BASE_W, shelfWidth())) : BASE_W;
+  islandH = pageIdx === CLAUDE_PAGE ? CLAUDE_H : BASE_H;
   document.documentElement.style.setProperty('--w', `${islandW}px`);
+  document.documentElement.style.setProperty('--h', `${islandH}px`);
   document.documentElement.style.setProperty('--k', K);
   const open = wrap.classList.contains('expanded');
   // Area yang menerima klik: pulau + naga di bawahnya.
   if (!api) return;
   // bw/bh = badan hitam pulau (tanpa sudut membulat): tempat jendela penangkap seretan berada.
   if (hidden) api.setRect({ w: 0, h: 0, bw: 0, bh: 0 }); // tersembunyi: seluruh jendela tembus-klik
-  else if (open) api.setRect({ w: (islandW + 56) * K, h: (196 + 74) * K, bw: (islandW - 14) * K, bh: (196 - 38) * K });
+  else if (open) api.setRect({ w: (islandW + 56) * K, h: (islandH + 74) * K, bw: (islandW - 14) * K, bh: (islandH - 38) * K });
   else api.setRect({ w: (PILL_W + 36) * K, h: (38 + 56) * K, bw: (PILL_W - 34) * K, bh: (38 - 19) * K });
 }
 window.addEventListener('resize', () => layout());
@@ -95,7 +99,7 @@ function cursorTick(p) {
   const dx = Math.abs(p.x - cx);
   const open = wrap.classList.contains('expanded');
   // Panel terbuka tanpa kursor di atasnya (mis. dibuka pengingat atau tepi layar): tutup saat kursor menjauh.
-  if (open && !hover && !dragging && !closing && (dx > (islandW / 2 + 50) * K || p.y > (196 + 90) * K)) maybeClose();
+  if (open && !hover && !dragging && !closing && (dx > (islandW / 2 + 50) * K || p.y > (islandH + 90) * K)) maybeClose();
   if (!dodge) { clearTimeout(summonTimer); summonTimer = null; setHidden(false); return; }
   if (open || dragging || Date.now() < holdUntil) { setHidden(false); return; }
   const halfPill = (PILL_W / 2) * K, pillH = 38 * K;
@@ -136,7 +140,7 @@ function chime() {
   } catch (_) { /* audio tidak tersedia */ }
 }
 // Pengingat: pulau terbuka sendiri, berdenyut hijau, naga melompat, plus notifikasi Windows.
-function alertUser(title, body, page, sound) {
+function alertUser(title, body, page, sound, noNotify) {
   wake();
   wrap.classList.add('alert');
   dragon.classList.remove('excited'); void dragon.offsetWidth; dragon.classList.add('excited');
@@ -146,7 +150,7 @@ function alertUser(title, body, page, sound) {
   setExpanded(true);
   setTimeout(() => { wrap.classList.remove('alert'); dragon.classList.remove('excited'); if (!hover) maybeClose(); }, 12000);
   if (sound) chime();
-  try { new Notification(title, { body }); } catch (_) { /* notifikasi tidak tersedia */ }
+  if (!noNotify) { try { new Notification(title, { body }); } catch (_) { /* notifikasi tidak tersedia */ } }
 }
 
 // ---------- naga ----------
@@ -243,7 +247,7 @@ function showPage(i) {
 $('prev').onclick = () => showPage(pageIdx - 1);
 $('next').onclick = () => showPage(pageIdx + 1);
 wrap.addEventListener('wheel', (e) => {
-  if (e.target.closest('#todoList, .overlay, textarea')) return;
+  if (e.target.closest('#todoList, .overlay, textarea, #clList, #clLog')) return;
   const sh = $('shelf');
   if (e.target.closest('#shelfBox') && sh.scrollWidth > sh.clientWidth + 1) { sh.scrollLeft += e.deltaY || e.deltaX; return; }
   showPage(pageIdx + (e.deltaY > 0 ? 1 : -1));
@@ -672,6 +676,268 @@ $('noteClear').onclick = () => {
   noteEl.value = ''; noteChanged(); mood('sad', 1200);
 };
 
+// ---------- Claude ----------
+// Tab Sesi: sesi Claude Code di komputer ini (dikabarkan lewat hooks, lihat claude-monitor.js).
+// Tab Chat: chat cepat lewat Claude API (claude-chat.js). Kunci API tidak pernah sampai ke tampilan.
+let prayBusy = false, claudeBusy = false;
+const cl = { state: null, chat: null, tab: load('clTab', 'sessions'), busy: false, model: load('clModel', 'claude-opus-5-5'), open: new Set(), flash: null };
+const CL_STATUS = { working: 'Bekerja', permission: 'Butuh izin', done: 'Selesai', error: 'Error', idle: 'Menunggu', ended: 'Ditutup' };
+function relTime(t) {
+  const sec = Math.max(0, (Date.now() - t) / 1000);
+  if (sec < 45) return 'baru saja';
+  if (sec < 3600) return `${Math.round(sec / 60)} mnt lalu`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)} j lalu`;
+  return `${Math.floor(sec / 86400)} hr lalu`;
+}
+function fmtTokens(n) { return n >= 1e6 ? `${(n / 1e6).toFixed(1)} jt` : n >= 1e3 ? `${Math.round(n / 1e3)} rb` : String(n); }
+function clSetTab(t) {
+  cl.tab = t === 'chat' ? 'chat' : 'sessions';
+  save('clTab', cl.tab);
+  $('clSessions').hidden = cl.tab !== 'sessions';
+  $('clChat').hidden = cl.tab !== 'chat';
+  $('clTabSessions').classList.toggle('on', cl.tab === 'sessions');
+  $('clTabChat').classList.toggle('on', cl.tab === 'chat');
+  clRenderUsage();
+  if (cl.tab === 'chat' && wrap.classList.contains('expanded') && pageIdx === CLAUDE_PAGE) setTimeout(() => $('clText').focus(), 50);
+}
+$('clTabSessions').onclick = () => clSetTab('sessions');
+$('clTabChat').onclick = () => clSetTab('chat');
+
+function clRenderUsage() {
+  const el = $('clUsage');
+  el.textContent = '';
+  el.title = '';
+  if (cl.tab === 'chat') {
+    const u = cl.chat && cl.chat.usage && cl.chat.usage.today;
+    if (u && u.requests) el.textContent = `Chat hari ini: ${u.requests} pesan · ${fmtTokens(u.input + u.output)} token · ~$${u.cost.toFixed(u.cost < 1 ? 3 : 2)}`;
+    return;
+  }
+  const lim = cl.state && cl.state.limits;
+  if (!lim) { el.textContent = cl.state && cl.state.installed ? 'Batas pemakaian muncul setelah sesi berikutnya' : ''; return; }
+  const tips = [];
+  const add = (w, label) => {
+    if (!w || w.used_percentage == null) return;
+    const pct = Math.round(w.used_percentage);
+    const span = document.createElement('span');
+    span.append(`${label}`);
+    const bar = document.createElement('span');
+    bar.className = 'bar' + (pct >= 90 ? ' hot' : pct >= 70 ? ' warn' : '');
+    const fill = document.createElement('i'); fill.style.width = `${Math.min(100, pct)}%`; bar.appendChild(fill);
+    span.append(bar, `${pct}%  `);
+    el.appendChild(span);
+    if (w.resets_at) {
+      const r = new Date(w.resets_at * 1000);
+      tips.push(`${label}: reset ${r.toLocaleString('id-ID', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}`);
+    }
+  };
+  add(lim.five_hour, '5 jam');
+  add(lim.seven_day, '7 hari');
+  tips.push(`Data per ${relTime(lim.at)} (dari status line Claude Code)`);
+  el.title = tips.join('\n');
+}
+
+function clRenderSessions() {
+  const st = cl.state;
+  const list = $('clList');
+  list.textContent = '';
+  const sessions = (st && st.sessions) || [];
+  const active = sessions.filter((x) => x.status === 'working' || x.status === 'permission').length;
+  $('clCount').textContent = active ? String(active) : '';
+  let empty = '';
+  if (!st) empty = 'Memuat…';
+  else if (!st.listening) empty = `Port ${st.port} sedang dipakai aplikasi lain, jadi kabar dari Claude Code tidak bisa diterima.`;
+  else if (!st.installed) empty = 'Klik "Pasang" agar sesi Claude Code di komputer ini muncul di sini, lengkap dengan kabar saat selesai atau butuh izin. Ini menambahkan hooks ke settings.json Claude Code (cadangan dibuat otomatis).';
+  else if (!sessions.length) empty = 'Belum ada sesi Claude Code dalam 24 jam terakhir. Sesi yang berjalan setelah pemasangan akan muncul di sini.';
+  $('clEmpty').textContent = empty;
+  for (const s of sessions) {
+    const li = document.createElement('li');
+    li.className = `cs ${s.status}` + (cl.open.has(s.id) ? ' open' : '');
+    const dot = document.createElement('span'); dot.className = 'dot';
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = s.project || 'Sesi';
+    if (s.title) { const sm = document.createElement('small'); sm.textContent = s.title; nm.appendChild(sm); }
+    const tm = document.createElement('span'); tm.className = 'tm';
+    tm.textContent = [CL_STATUS[s.status] || s.status, s.context != null ? `ctx ${s.context}%` : '', relTime(s.updatedAt)].filter(Boolean).join(' · ');
+    const dt = document.createElement('span'); dt.className = 'dt'; dt.textContent = s.detail || '';
+    const more = document.createElement('div'); more.className = 'more';
+    if (s.prompt) { const p = document.createElement('p'); p.textContent = `Perintah terakhir: ${s.prompt}`; more.appendChild(p); }
+    if (s.status === 'done' && s.detail) { const p = document.createElement('p'); p.textContent = `Jawaban: ${s.detail}`; more.appendChild(p); }
+    const meta = [s.model, s.cost != null ? `~$${Number(s.cost).toFixed(2)} sesi ini` : '', s.cwd].filter(Boolean).join(' · ');
+    if (meta) { const p = document.createElement('p'); p.className = 'dim'; p.textContent = meta; more.appendChild(p); }
+    const row = document.createElement('div'); row.className = 'row';
+    if (s.cwd) {
+      const b1 = document.createElement('button'); b1.className = 'chip'; b1.textContent = 'Buka folder';
+      b1.onclick = (e) => { e.stopPropagation(); api.claude.openFolder(s.cwd); };
+      const b2 = document.createElement('button'); b2.className = 'chip'; b2.textContent = 'Salin perintah lanjut';
+      b2.title = 'Salin perintah untuk melanjutkan sesi ini di terminal';
+      b2.onclick = (e) => { e.stopPropagation(); api.claude.copy(`cd "${s.cwd}"; claude --resume ${s.id}`); b2.textContent = 'Tersalin'; setTimeout(() => { b2.textContent = 'Salin perintah lanjut'; }, 1500); };
+      row.append(b1, b2);
+    }
+    more.appendChild(row);
+    li.append(dot, nm, tm, dt, more);
+    li.onclick = () => { if (cl.open.has(s.id)) cl.open.delete(s.id); else cl.open.add(s.id); li.classList.toggle('open'); };
+    list.appendChild(li);
+  }
+  if (st) {
+    $('clHookInfo').textContent = st.installed
+      ? `Terhubung · sesi lokal${st.statusLine === 'other' ? ' · status line dipakai skrip lain' : ''}`
+      : 'Belum terpasang';
+    $('clInstall').textContent = st.installed ? 'Lepas' : 'Pasang';
+    $('clInstall').classList.toggle('on', !st.installed);
+  }
+  clRenderPill();
+  clRenderUsage();
+}
+function clRenderPill() {
+  const sessions = (cl.state && cl.state.sessions) || [];
+  const perm = sessions.filter((x) => x.status === 'permission').length;
+  const work = sessions.filter((x) => x.status === 'working').length;
+  const el = $('pillClaude');
+  let cls = '', text = '';
+  if (perm) { cls = 'permission'; text = perm > 1 ? `${perm} izin` : 'izin'; }
+  else if (work) { cls = 'working'; text = String(work); }
+  else if (cl.flash && Date.now() < cl.flash.until) { cls = 'done'; text = '✓'; }
+  el.className = cls ? `on ${cls}` : '';
+  el.querySelector('span').textContent = text;
+  el.title = perm ? 'Claude butuh izin' : work ? `${work} sesi Claude Code sedang bekerja` : cls ? 'Claude selesai' : '';
+  claudeBusy = !!cls;
+  $('pill').classList.toggle('busy', prayBusy || claudeBusy);
+}
+
+let clInstallArmed = 0;
+$('clInstall').onclick = async () => {
+  const st = cl.state;
+  if (st && st.installed) {
+    if (Date.now() - clInstallArmed > 3000) { clInstallArmed = Date.now(); $('clInstall').textContent = 'Yakin lepas?'; return; }
+    clInstallArmed = 0;
+    const r = await api.claude.uninstall();
+    if (!r.ok) $('clEmpty').textContent = r.error || 'Gagal melepas.';
+    return;
+  }
+  const r = await api.claude.install();
+  if (!r.ok) { $('clEmpty').textContent = r.error || 'Gagal memasang.'; return; }
+  if (r.note) $('clHookInfo').textContent = r.note;
+  mood('happy', 1400);
+};
+$('clClear').onclick = () => api.claude.clear();
+
+// ---- chat ----
+let clAiEl = null;
+function clAddMsg(cls, text) {
+  const el = document.createElement('div');
+  el.className = `msg ${cls}`;
+  el.textContent = text;
+  $('clLog').appendChild(el);
+  $('clLog').scrollTop = $('clLog').scrollHeight;
+  return el;
+}
+function clSetBusy(b) {
+  cl.busy = b;
+  $('clSend').textContent = b ? 'Stop' : 'Kirim';
+  $('clSend').classList.toggle('stop', b);
+}
+function clShowKey(show) {
+  $('clKeyBox').hidden = !show;
+  if (!show) return;
+  const c = cl.chat || {};
+  $('clKey').value = '';
+  $('clKeyInfo').textContent = c.fromEnv
+    ? 'Kunci diambil dari variabel ANTHROPIC_API_KEY di komputer ini.'
+    : c.hasKey
+      ? 'Kunci sudah tersimpan' + (c.encryption ? ' (terenkripsi oleh Windows).' : ' di memori saja; akan hilang saat aplikasi ditutup.') + ' Isi untuk mengganti.'
+      : 'Chat memakai Claude API (ditagih per pemakaian, terpisah dari langganan Claude). Buat kunci di platform.claude.com, menu API Keys.';
+  setTimeout(() => $('clKey').focus(), 30);
+}
+async function clRefreshChat() { const st = await api.claude.status(); cl.chat = st.chat; clRenderUsage(); }
+async function clSend() {
+  if (cl.busy) { api.claude.stop(); return; }
+  const text = $('clText').value.trim();
+  if (!text) return;
+  if (!cl.chat || !cl.chat.hasKey) { clShowKey(true); return; }
+  $('clText').value = ''; clGrow();
+  clAddMsg('me', text);
+  clAiEl = clAddMsg('ai wait', '');
+  clSetBusy(true);
+  dragon.classList.add('curious');
+  const r = await api.claude.ask(text, cl.model);
+  clSetBusy(false);
+  const el = clAiEl; clAiEl = null;
+  el.classList.remove('wait');
+  if (r.ok) {
+    el.textContent = r.text || el.textContent;
+    const meta = document.createElement('span'); meta.className = 'meta';
+    const label = (cl.chat.models.find((m) => m.id === r.model) || {}).label || r.model || '';
+    meta.textContent = [label, r.note].filter(Boolean).join(' · ');
+    const cp = document.createElement('span'); cp.className = 'cp'; cp.textContent = 'salin';
+    cp.onclick = () => { api.claude.copy(el.firstChild ? el.firstChild.textContent : ''); cp.textContent = 'tersalin'; };
+    meta.appendChild(cp);
+    el.appendChild(meta);
+    if (r.usage) { cl.chat.usage = r.usage; clRenderUsage(); }
+    mood('happy', 900);
+  } else {
+    if (!el.textContent) el.remove();
+    clAddMsg('err', r.error || 'Gagal');
+    if (/Kunci API ditolak|Belum ada kunci/.test(r.error || '')) clShowKey(true);
+  }
+  $('clLog').scrollTop = $('clLog').scrollHeight;
+}
+function clGrow() { const t = $('clText'); t.style.height = 'auto'; t.style.height = `${Math.min(72, t.scrollHeight)}px`; }
+$('clText').addEventListener('input', clGrow);
+$('clText').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); clSend(); }
+  if (e.key === 'Escape') $('clText').blur();
+});
+$('clSend').onclick = clSend;
+$('clNew').onclick = () => { if (api) api.claude.reset(); $('clLog').textContent = ''; clSetBusy(false); $('clText').focus(); };
+$('clModel').onchange = () => { cl.model = $('clModel').value; save('clModel', cl.model); };
+$('clKeyBtn').onclick = () => clShowKey(true);
+$('clKeyCancel').onclick = () => clShowKey(false);
+$('clKey').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('clKeySave').click(); if (e.key === 'Escape') clShowKey(false); });
+$('clKeySave').onclick = async () => {
+  const r = await api.claude.setKey($('clKey').value);
+  if (!r.ok) { $('clKeyInfo').textContent = r.error; return; }
+  $('clKey').value = '';
+  await clRefreshChat();
+  clShowKey(false);
+  $('clText').focus();
+};
+$('clKeyDel').onclick = async () => { await api.claude.setKey(''); await clRefreshChat(); clShowKey(true); };
+
+if (api && api.claude) {
+  api.claude.onDelta((d) => {
+    if (!clAiEl) return;
+    clAiEl.textContent += d;
+    $('clLog').scrollTop = $('clLog').scrollHeight;
+  });
+  api.claude.onState((st) => { cl.state = st; clRenderSessions(); });
+  api.claude.onAlert((a) => {
+    const s = a.session || {};
+    const who = s.project || 'Claude Code';
+    if (a.kind === 'permission') {
+      clSetTab('sessions');
+      // Notifikasi Windows dikirim proses utama; di sini pulau terbuka di halaman Claude.
+      alertUser(`${who}: Claude butuh izin`, s.detail || '', CLAUDE_PAGE, true, true);
+    } else if (a.kind === 'done') {
+      cl.flash = { until: Date.now() + 10000 };
+      mood('happy', 1600); mood('hop', 900);
+      setTimeout(clRenderPill, 10100);
+    } else if (a.kind === 'error') {
+      mood('sad', 1600);
+    }
+    clRenderPill();
+  });
+  api.claude.onOpen(() => { setHidden(false); holdUntil = Date.now() + 8000; setExpanded(true); showPage(CLAUDE_PAGE); clSetTab('sessions'); });
+  api.claude.reset(); // tampilan baru dimuat: mulai percakapan baru juga di proses utama
+  api.claude.status().then((st) => {
+    cl.chat = st.chat; cl.state = st.monitor;
+    const sel = $('clModel');
+    for (const m of (cl.chat && cl.chat.models) || []) sel.add(new Option(m.label, m.id));
+    if ([...sel.options].some((o) => o.value === cl.model)) sel.value = cl.model; else cl.model = sel.value;
+    clRenderSessions();
+  });
+}
+clSetTab(cl.tab);
+setInterval(() => { if (pageIdx === CLAUDE_PAGE && wrap.classList.contains('expanded') && !$('clSessions').hidden) clRenderSessions(); }, 20000);
+
 // ---------- sholat ----------
 const PRAYERS = [['subuh', 'Subuh'], ['dzuhur', 'Dzuhur'], ['ashar', 'Ashar'], ['maghrib', 'Maghrib'], ['isya', 'Isya']];
 const pray = Object.assign({ city: 'Tasikmalaya', lat: -7.3274, lng: 108.2207, before: 10, adjust: 0, sound: true }, load('pray', {}));
@@ -697,7 +963,8 @@ function tickPray() {
   const dur = left >= 60 ? `${Math.floor(left / 60)} j ${left % 60} mnt` : `${left} mnt`;
   $('prayInfo').textContent = `${dur} lagi · ${pray.city}${nx.tomorrow ? ' · besok' : ''}`;
   $('pillExtra').textContent = left <= 30 ? `${nx.label} ${left}m` : '';
-  $('pill').classList.toggle('busy', left <= 30);
+  prayBusy = left <= 30;
+  $('pill').classList.toggle('busy', prayBusy || claudeBusy);
   const row = $('prayRow');
   row.textContent = '';
   for (const [k, label] of PRAYERS) {

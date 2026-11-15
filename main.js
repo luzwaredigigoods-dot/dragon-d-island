@@ -1,9 +1,11 @@
-const { app, BrowserWindow, ipcMain, screen, shell, Tray, Menu, nativeImage, globalShortcut, dialog, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, shell, Tray, Menu, nativeImage, globalShortcut, dialog, clipboard, safeStorage, Notification } = require('electron');
+const { createChat } = require('./claude-chat');
+const { createMonitor } = require('./claude-monitor');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
-const WIN_H = 320;
+const WIN_H = 440; // cukup untuk panel tertinggi (halaman Claude) + naga
 const isWin = process.platform === 'win32';
 
 // Tes otomatis memakai folder data terpisah, supaya todo, shelf, catatan, dan pengaturan
@@ -435,6 +437,44 @@ function watchCursor() {
 // ---------- IPC ----------
 ipcMain.on('media:command', (_e, action) => mediaCommand(action));
 ipcMain.on('log', (_e, msg) => log('tampilan:', String(msg).slice(0, 500)));
+
+// ---------- Claude: chat cepat & pemantau sesi Claude Code ----------
+let chat = null;
+let monitor = null;
+function notifyWindows(title, body) {
+  try {
+    if (!Notification.isSupported()) return;
+    const n = new Notification({ title, body, silent: false });
+    n.on('click', () => { if (win && !win.isDestroyed()) { win.showInactive(); send('claude:open'); } });
+    n.show();
+  } catch (err) { log('notifikasi gagal:', String(err)); }
+}
+function startClaude() {
+  const userDataDir = app.getPath('userData');
+  chat = createChat({ safeStorage, userDataDir, log, send });
+  monitor = createMonitor({
+    userDataDir, settings, saveSettings, log, appDir: __dirname,
+    onChange: (snap) => send('claude:state', snap),
+    onAlert: (a) => {
+      const s = a.session;
+      const who = s.project || 'Claude Code';
+      if (a.kind === 'permission') notifyWindows(`${who}: Claude butuh izin`, s.detail || 'Buka sesi Claude Code untuk menjawab.');
+      else if (a.kind === 'done') notifyWindows(`${who}: Claude selesai`, s.detail || 'Tugas selesai.');
+      else if (a.kind === 'error') notifyWindows(`${who}: Claude berhenti karena error`, s.detail || '');
+      send('claude:alert', a);
+    },
+  });
+}
+ipcMain.handle('claude:status', () => ({ chat: chat ? chat.status() : null, monitor: monitor ? monitor.snapshot() : null }));
+ipcMain.handle('claude:setKey', (_e, key) => (chat ? chat.setKey(key) : { ok: false }));
+ipcMain.handle('claude:ask', (_e, text, model) => (chat ? chat.ask(text, model) : { ok: false, error: 'Belum siap' }));
+ipcMain.on('claude:reset', () => { if (chat) chat.reset(); });
+ipcMain.on('claude:stop', () => { if (chat) chat.stop(); });
+ipcMain.handle('claude:install', () => (monitor ? monitor.install() : { ok: false }));
+ipcMain.handle('claude:uninstall', () => (monitor ? monitor.uninstall() : { ok: false }));
+ipcMain.on('claude:clear', () => { if (monitor) monitor.clearFinished(); });
+ipcMain.on('claude:openFolder', (_e, dir) => { if (dir && fs.existsSync(String(dir))) shell.openPath(String(dir)); });
+ipcMain.on('claude:copy', (_e, text) => { try { clipboard.writeText(String(text)); } catch (_) { /* abaikan */ } });
 // ---------- Ikon ----------
 function expandEnv(p) {
   return String(p || '').replace(/%([^%]+)%/g, (m, name) => process.env[name] || process.env[name.toUpperCase()] || m);
@@ -681,6 +721,7 @@ if (!app.requestSingleInstanceLock()) {
     if (migration) log(migration);
     log('===', APP_NAME, app.getVersion(), 'mulai ===', process.platform, process.getSystemVersion(), 'layar', screen.getPrimaryDisplay().size, 'skala', screen.getPrimaryDisplay().scaleFactor);
     logIntegrity();
+    try { startClaude(); } catch (err) { log('fitur Claude gagal dimulai:', String(err)); }
     try { createCatcher(); } catch (err) { log('penangkap gagal dibuat:', String(err)); }
     createWindow();
     try { createTray(); } catch (err) { log('tray gagal:', String(err)); }
@@ -693,6 +734,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('will-quit', () => {
     quitting = true;
     globalShortcut.unregisterAll();
+    if (monitor) monitor.close();
     for (const p of [mediaProc, winProc, iconProc]) { if (p) { try { p.stdin.end(); p.kill(); } catch (_) { /* sudah mati */ } } }
   });
   app.on('window-all-closed', () => app.quit());

@@ -42,7 +42,15 @@ async function launch({ env = {} } = {}) {
   const app = await _electron.launch({
     executablePath: electronPath,
     args: [ROOT, '--no-sandbox', '--disable-gpu'],
-    env: { ...process.env, PULAU_USER_DATA: dir, ...env },
+    env: {
+      ...process.env,
+      PULAU_USER_DATA: dir,
+      // Port, folder Claude Code, dan kunci API sendiri supaya tidak bertabrakan dengan aplikasi/pengaturan sungguhan.
+      PULAU_CLAUDE_PORT: String(20000 + Math.floor(Math.random() * 30000)),
+      CLAUDE_CONFIG_DIR: path.join(dir, 'claude-config'),
+      ANTHROPIC_API_KEY: '',
+      ...env,
+    },
   });
   const find = (part) => app.windows().find((w) => w.url().includes(part));
   const win = await waitFor(() => find('renderer/index.html'));

@@ -36,6 +36,7 @@ node scripts/set-exe-icon.js "$APPDIR/$NAME.exe" icon.ico
 # Kode aplikasi
 mkdir -p "$APPDIR/resources/app"
 cp -r main.js preload.js catcher.html catcher.js catcher-preload.js \
+      claude-chat.js claude-monitor.js statusline.ps1 \
       media.ps1 winwatch.ps1 iconhelper.ps1 icon.png tray.png renderer \
       "$APPDIR/resources/app/"
 node -e "
@@ -43,6 +44,10 @@ const p = require('./package.json');
 delete p.devDependencies; delete p.scripts;
 require('fs').writeFileSync(process.argv[1], JSON.stringify(p, null, 2));
 " "$APPDIR/resources/app/package.json"
+# Dependensi yang dipakai saat berjalan (SDK Anthropic untuk chat Claude); tanpa paket pengembangan.
+cp package-lock.json "$APPDIR/resources/app/"
+(cd "$APPDIR/resources/app" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund --loglevel=error)
+rm -f "$APPDIR/resources/app/package-lock.json"
 
 rm -f "$OUT"
 (cd "$WORK" && zip -qr "$OUT" "$NAME")

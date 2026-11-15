@@ -1,6 +1,6 @@
 {
   "name": "dragon-dynamic-island",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "description": "Dynamic island pribadi untuk Windows",
   "main": "main.js",
   "scripts": {
@@ -17,5 +17,8 @@
     "resedit": "^1.7.2"
   },
   "productName": "Dragon Dynamic Island",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0"
+  }
 }

@@ -31,6 +31,7 @@
         <span id="pillDate"><span class="dow"></span><span class="dm"></span></span>
         <span id="pillTime">--:--</span>
         <span id="pillExtra"></span>
+        <span id="pillClaude" title="Sesi Claude Code"><i></i><span></span></span>
       </div>
 
       <!-- Tampilan besar -->
@@ -133,6 +134,55 @@
               </div>
             </div>
             <div class="note-status dim" id="noteStatus"></div>
+          </section>
+
+          <!-- 6. Claude -->
+          <section class="page" data-title="Claude">
+            <div class="cl">
+              <div class="cl-top">
+                <div class="cl-tabs">
+                  <button class="chip on" id="clTabSessions">Sesi Claude Code <b id="clCount"></b></button>
+                  <button class="chip" id="clTabChat">Chat</button>
+                </div>
+                <div class="cl-usage" id="clUsage"></div>
+              </div>
+
+              <div class="cl-view" id="clSessions">
+                <ul id="clList"></ul>
+                <div class="cl-empty" id="clEmpty"></div>
+                <div class="cl-foot">
+                  <span class="dim" id="clHookInfo"></span>
+                  <span>
+                    <button class="mini" id="clClear">Bersihkan</button>
+                    <button class="mini" id="clInstall">Pasang</button>
+                  </span>
+                </div>
+              </div>
+
+              <div class="cl-view" id="clChat" hidden>
+                <div id="clLog"></div>
+                <div class="cl-input">
+                  <textarea id="clText" rows="1" placeholder="Tanya Claude…" title="Enter untuk kirim, Shift+Enter untuk baris baru" maxlength="8000"></textarea>
+                  <select id="clModel" title="Model"></select>
+                  <button class="chip accent" id="clSend">Kirim</button>
+                  <button class="chip" id="clNew" title="Mulai percakapan baru">Baru</button>
+                  <button class="chip" id="clKeyBtn" title="Kunci API Claude">Kunci</button>
+                </div>
+              </div>
+
+              <div class="overlay cl-key" id="clKeyBox" hidden>
+                <div class="cl-key-text">
+                  <b>Kunci API Claude</b>
+                  <span class="dim" id="clKeyInfo">Chat memakai Claude API (ditagih per pemakaian, terpisah dari langganan Claude). Buat kunci di platform.claude.com, menu API Keys.</span>
+                </div>
+                <input type="password" id="clKey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false">
+                <div class="cl-key-btns">
+                  <button class="chip" id="clKeyDel">Hapus kunci</button>
+                  <button class="chip" id="clKeyCancel">Batal</button>
+                  <button class="chip accent" id="clKeySave">Simpan</button>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
 
