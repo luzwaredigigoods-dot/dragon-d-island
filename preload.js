@@ -1,0 +1,28 @@
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
+
+contextBridge.exposeInMainWorld('api', {
+  platform: process.platform,
+  setRect: (rect) => ipcRenderer.send('island:rect', rect),
+  log: (msg) => ipcRenderer.send('log', msg),
+  onDodge: (cb) => ipcRenderer.on('dodge', (_e, on) => cb(on)),
+  shelfPick: () => ipcRenderer.invoke('shelf:pick'),
+  appsList: () => ipcRenderer.invoke('apps:list'),
+  shelfSpecials: () => ipcRenderer.invoke('shelf:specials'),
+  onDragStart: (cb) => ipcRenderer.on('drag:start', () => cb()),
+  onDragEnd: (cb) => ipcRenderer.on('drag:end', () => cb()),
+  onDragDrop: (cb) => ipcRenderer.on('drag:drop', (_e, data) => cb(data)),
+  clipRead: () => ipcRenderer.invoke('clip:read'),
+  clipWrite: (text) => ipcRenderer.send('clip:write', text),
+  noteSave: (text) => ipcRenderer.invoke('note:save', text),
+  onAdmin: (cb) => ipcRenderer.on('admin', (_e, on) => cb(on)),
+  onThumb: (cb) => ipcRenderer.on('media:thumb', (_e, data) => cb(data)),
+  onScale: (cb) => ipcRenderer.on('scale', (_e, k) => cb(k)),
+  onCursor: (cb) => ipcRenderer.on('cursor', (_e, pos) => cb(pos)),
+  onMedia: (cb) => ipcRenderer.on('media:update', (_e, data) => cb(data)),
+  mediaCommand: (action) => ipcRenderer.send('media:command', action),
+  pathForFile: (file) => webUtils.getPathForFile(file),
+  shelfInfo: (filePath) => ipcRenderer.invoke('shelf:info', filePath),
+  shelfOpen: (filePath) => ipcRenderer.send('shelf:open', filePath),
+  shelfReveal: (filePath) => ipcRenderer.send('shelf:reveal', filePath),
+  shelfDrag: (filePath) => ipcRenderer.send('shelf:drag', filePath),
+});

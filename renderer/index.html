@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'">
+<title>Pulau</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path d="M11 12l9-6v12zM2 12l9-6v12z"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="M13 12L4 6v12zM22 12l-9-6v12z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M9 4v10.2A3.5 3.5 0 1 0 11 17.5V8h7V4z"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="M14.5 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="M9.5 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z M12 10v5 M12 17.6v.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+
+<div id="wrap" class="collapsed">
+  <div id="shell">
+    <i class="flare l"></i><i class="flare r"></i>
+    <div id="island">
+
+      <!-- Tampilan kecil (pil) -->
+      <div id="pill">
+        <span id="pillWave" class="wave" hidden><i></i><i></i><i></i><i></i></span>
+        <span id="pillDate"><span class="dow"></span><span class="dm"></span></span>
+        <span id="pillTime">--:--</span>
+        <span id="pillExtra"></span>
+      </div>
+
+      <!-- Tampilan besar -->
+      <div id="panel">
+        <div id="header">
+          <span id="pageTitle"></span>
+          <span id="headerRight">
+            <span class="batt" data-batt><i></i></span>
+            <span id="date"></span>
+            <b id="time"></b>
+          </span>
+        </div>
+
+
+        <div id="pages">
+          <!-- 1. Media -->
+          <section class="page" data-title="Media">
+            <div class="media-top">
+              <div class="media-art" id="mediaArt"><svg><use id="mediaArtIcon" href="#i-note"/></svg></div>
+              <div class="media-meta">
+                <div id="mediaTitle">Tidak ada media</div>
+                <div id="mediaArtist" class="dim"></div>
+              </div>
+            </div>
+            <div class="media-bar">
+              <span id="mediaPos">00:00</span>
+              <div class="track"><div id="mediaFill"><i></i></div></div>
+              <span id="mediaRem">-00:00</span>
+            </div>
+            <div class="media-ctl">
+              <button data-media="prev" aria-label="Sebelumnya"><svg><use href="#i-prev"/></svg></button>
+              <button data-media="toggle" aria-label="Putar/Jeda"><svg><use id="mediaPlayIcon" href="#i-play"/></svg></button>
+              <button data-media="next" aria-label="Berikutnya"><svg><use href="#i-next"/></svg></button>
+            </div>
+          </section>
+
+          <!-- 2. Shelf -->
+          <section class="page" data-title="Shelf <button class='mini' id='shelfEdit'>Edit</button><button class='mini danger' id='shelfClear'>Clear</button>">
+            <div id="shelfBox">
+              <div id="shelf"></div>
+              <div id="shelfHint"><svg><use href="#i-drop"/></svg><span>Seret file atau shortcut aplikasi ke sini</span></div>
+            </div>
+            <div class="overlay apps" id="appPicker" hidden>
+              <div class="ap-top">
+                <input id="appSearch" placeholder="Cari aplikasi..." maxlength="40">
+                <button class="chip" id="appFile">File lain...</button>
+                <button class="chip accent" id="appClose">Selesai</button>
+              </div>
+              <div id="appList"></div>
+            </div>
+          </section>
+
+          <!-- 3. Todo -->
+          <section class="page" data-title="Todo <em class='green'>List</em>">
+            <div class="todo">
+              <div class="todo-left">
+                <div class="todo-count" id="todoCount">0/0</div>
+                <div class="dim">Task Done Today</div>
+                <div class="row left">
+                  <button class="chip" id="todoAdd">+ Add Task</button>
+                  <button class="chip" id="todoEdit">Edit Task</button>
+                </div>
+              </div>
+              <div class="todo-right">
+                <input id="todoInput" placeholder="Tulis tugas, lalu Enter" maxlength="80">
+                <ul id="todoList"></ul>
+              </div>
+            </div>
+          </section>
+
+          <!-- 4. Sholat -->
+          <section class="page" data-title="Jadwal <em class='green'>Sholat</em>">
+            <div class="pray-top">
+              <div>
+                <div class="pray-next"><b id="prayNext">—</b><span id="prayNextTime"></span></div>
+                <div class="dim" id="prayInfo"></div>
+              </div>
+              <button class="chip" id="praySettingsBtn">Settings</button>
+            </div>
+            <div id="prayRow"></div>
+            <div class="overlay" id="praySettings" hidden>
+              <label>Kota <select id="pCity"></select></label>
+              <label>Ingatkan sebelum (menit, 0 = mati) <input type="number" id="pBefore" min="0" max="60" step="5"></label>
+              <label class="latlng">Lintang <input type="number" id="pLat" step="0.0001"> Bujur <input type="number" id="pLng" step="0.0001"></label>
+              <label>Koreksi (menit) <input type="number" id="pAdjust" min="-10" max="10" step="1"></label>
+              <label class="check"><input type="checkbox" id="pSound"> Bunyi pengingat</label>
+              <button class="chip accent" id="pSave">Simpan</button>
+            </div>
+          </section>
+
+          <!-- 5. Notes -->
+          <section class="page" data-title="Notes <span class='dim' id='noteCount'></span>">
+            <div class="notes">
+              <textarea id="noteText" spellcheck="false" placeholder="Tempel (Ctrl+V) atau ketik catatan cepat di sini..."></textarea>
+              <div class="note-btns">
+                <button class="chip" id="notePaste" title="Tempel isi clipboard ke catatan">Tempel</button>
+                <button class="chip" id="noteCopy" title="Salin seluruh catatan (atau bagian yang dipilih)">Salin</button>
+                <button class="chip accent" id="noteSave" title="Simpan sebagai file .txt di Documents\Pulau Notes">Simpan</button>
+                <button class="chip" id="noteClear" title="Kosongkan catatan">Hapus</button>
+              </div>
+            </div>
+            <div class="note-status dim" id="noteStatus"></div>
+          </section>
+        </div>
+
+        <div id="navrow">
+          <button class="nav" id="prev" aria-label="Sebelumnya"><svg><use href="#i-left"/></svg></button>
+          <div id="dots"></div>
+          <button class="nav" id="next" aria-label="Berikutnya"><svg><use href="#i-right"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Naga hitam bermata hijau yang menggantung terbalik dan mengintip dari tepi bawah pulau -->
+  <div id="dragon">
+    <svg viewBox="0 0 220 112">
+      <defs>
+        <radialGradient id="gHead" cx="50%" cy="30%" r="75%"><stop offset="0" stop-color="#26262b"/><stop offset="1" stop-color="#050506"/></radialGradient>
+        <radialGradient id="gHead2" cx="50%" cy="70%" r="75%"><stop offset="0" stop-color="#26262b"/><stop offset="1" stop-color="#050506"/></radialGradient>
+        <radialGradient id="gEye" cx="50%" cy="62%" r="68%"><stop offset="0" stop-color="#e6ff6a"/><stop offset=".5" stop-color="#66e622"/><stop offset="1" stop-color="#17700f"/></radialGradient>
+        <clipPath id="cL"><ellipse cx="80" cy="54" rx="16" ry="18.5"/></clipPath>
+        <clipPath id="cR"><ellipse cx="140" cy="54" rx="16" ry="18.5"/></clipPath>
+      </defs>
+      <g id="dBody">
+        <ellipse class="paw l" cx="30" cy="22" rx="29" ry="16" fill="url(#gHead)"/>
+        <ellipse class="paw r" cx="190" cy="22" rx="29" ry="16" fill="url(#gHead)"/>
+        <g id="dHead" transform="translate(0 108) scale(1 -1)">
+        <path class="ear l" d="M60 24 Q50 0 70 12 Z" fill="#0b0b0d"/>
+        <path class="ear r" d="M160 24 Q170 0 150 12 Z" fill="#0b0b0d"/>
+        <ellipse cx="110" cy="54" rx="76" ry="50" fill="url(#gHead2)"/>
+        <circle cx="103" cy="9" r="3.2" fill="#17171a"/><circle cx="117" cy="9" r="3.2" fill="#17171a"/>
+        <g transform="rotate(-7 80 54)"><g class="eye" clip-path="url(#cL)">
+          <ellipse cx="80" cy="54" rx="16" ry="18.5" fill="url(#gEye)"/>
+          <ellipse cx="80" cy="54" rx="15.2" ry="17.7" fill="none" stroke="#0c4a0a" stroke-width="1.8" opacity=".55"/>
+          <g class="pupil">
+            <ellipse class="slit" cx="80" cy="54" rx="5" ry="14" fill="#020302"/>
+            <circle class="glint" cx="75" cy="62" r="3.4" fill="#fff"/>
+            <circle class="glint g2" cx="85" cy="47" r="1.6" fill="#fff" opacity=".75"/>
+          </g>
+          <circle class="lid bot" cx="80" cy="54" r="40" fill="#0d0d10"/>
+          <rect class="lid top l" x="35" y="2.5" width="90" height="70" fill="#0d0d10"/>
+        </g></g>
+        <g transform="rotate(7 140 54)"><g class="eye" clip-path="url(#cR)">
+          <ellipse cx="140" cy="54" rx="16" ry="18.5" fill="url(#gEye)"/>
+          <ellipse cx="140" cy="54" rx="15.2" ry="17.7" fill="none" stroke="#0c4a0a" stroke-width="1.8" opacity=".55"/>
+          <g class="pupil">
+            <ellipse class="slit" cx="140" cy="54" rx="5" ry="14" fill="#020302"/>
+            <circle class="glint" cx="135" cy="62" r="3.4" fill="#fff"/>
+            <circle class="glint g2" cx="145" cy="47" r="1.6" fill="#fff" opacity=".75"/>
+          </g>
+          <circle class="lid bot" cx="140" cy="54" r="40" fill="#0d0d10"/>
+          <rect class="lid top r" x="95" y="2.5" width="90" height="70" fill="#0d0d10"/>
+        </g></g>
+        <ellipse cx="105" cy="84" rx="1.9" ry="1.3" fill="#2c2c31"/><ellipse cx="115" cy="84" rx="1.9" ry="1.3" fill="#2c2c31"/>
+        <path class="smile" d="M99 91 Q110 99 121 91" fill="none" stroke="#3a3a41" stroke-width="2.2" stroke-linecap="round"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+</div>
+<script src="prayer.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

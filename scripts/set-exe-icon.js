@@ -1,0 +1,20 @@
+// Menanam logo ke dalam Pulau.exe (ikon yang tampil di Explorer/Desktop/taskbar).
+const fs = require('fs');
+const ResEdit = require('resedit');
+const [exePath, icoPath] = process.argv.slice(2);
+const exe = ResEdit.NtExecutable.from(fs.readFileSync(exePath), { ignoreCert: true });
+const res = ResEdit.NtExecutableResource.from(exe);
+const ico = ResEdit.Data.IconFile.from(fs.readFileSync(icoPath));
+const groups = ResEdit.Resource.IconGroupEntry.fromEntries(res.entries);
+console.log('icon groups before:', groups.map(g => `${g.id}/${g.lang} x${g.icons.length}`));
+const g = groups[0];
+ResEdit.Resource.IconGroupEntry.replaceIconsForResource(res.entries, g.id, g.lang, ico.icons.map(i => i.data));
+const vi = ResEdit.Resource.VersionInfo.fromEntries(res.entries)[0];
+const lang = vi.getAllLanguagesForStringValues()[0];
+vi.setStringValues(lang, { ProductName: 'Pulau', FileDescription: 'Pulau', OriginalFilename: 'Pulau.exe', InternalName: 'Pulau', CompanyName: '', LegalCopyright: '' });
+vi.outputToResourceEntries(res.entries);
+res.outputResource(exe);
+fs.writeFileSync(exePath, Buffer.from(exe.generate()));
+const chk = ResEdit.NtExecutableResource.from(ResEdit.NtExecutable.from(fs.readFileSync(exePath), { ignoreCert: true }));
+const g2 = ResEdit.Resource.IconGroupEntry.fromEntries(chk.entries)[0];
+console.log('icon group after:', g2.icons.map(i => `${i.width || 256}x${i.height || 256}`).join(' '), '| desc:', ResEdit.Resource.VersionInfo.fromEntries(chk.entries)[0].getStringValues(lang).FileDescription);

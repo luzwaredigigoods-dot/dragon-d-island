@@ -1,0 +1,19 @@
+{
+  "name": "pulau",
+  "version": "3.1.0",
+  "description": "Dynamic island pribadi untuk Windows",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "bash scripts/build-win.sh"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "png-to-ico": "^2.1.8",
+    "resedit": "^1.7.2"
+  },
+  "productName": "Pulau",
+  "private": true
+}
