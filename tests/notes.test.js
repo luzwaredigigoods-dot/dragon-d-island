@@ -78,3 +78,87 @@ test('catatan tersimpan setelah dibuka ulang, dan Hapus perlu dua klik', async (
   await win.click('#noteClear');
   assert.equal(await win.inputValue('#noteText'), '');
 });
+
+test('buka catatan tersimpan dengan ‹ ›: urut terakhir diubah, draf aman, tidak keluar folder catatan', async () => {
+  const { win } = t;
+  const dir = path.join(t.dir, 'Documents', 'Dragon Dynamic Island Notes');
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  const mk = (name, text, ageMin) => {
+    const p = path.join(dir, name);
+    fs.writeFileSync(p, '\uFEFF' + text.replace(/\n/g, '\r\n'), 'utf8');
+    const when = new Date(Date.now() - ageMin * 60000);
+    fs.utimesSync(p, when, when);
+  };
+  mk('a-tertua.txt', 'catatan tertua\nbaris dua', 300);
+  mk('b-tengah.txt', 'catatan tengah', 120);
+  mk('c-terbaru.txt', 'catatan terbaru', 5);
+  fs.writeFileSync(path.join(dir, 'bukan-catatan.docx'), 'x');
+  const pos = () => win.textContent('#notePos');
+  const text = () => win.inputValue('#noteText');
+  const go = async (sel) => { await win.click(sel); await sleep(250); };
+
+  await win.fill('#noteText', 'draf saya yang belum disimpan');
+  await sleep(450);
+  await t.open();
+  await t.page(5);
+  assert.equal(await pos(), 'Draf');
+  assert.equal(await win.$eval('#noteNewer', (e) => e.disabled), true, 'tidak ada yang lebih baru dari draf');
+
+  await go('#noteOlder');
+  assert.equal(await pos(), '1/3');
+  assert.equal(await text(), 'catatan terbaru', 'yang pertama dibuka adalah yang terakhir diubah; BOM dan CRLF dibersihkan');
+  assert.match(await win.textContent('#noteStatus'), /c-terbaru\.txt · diubah/);
+  await go('#noteOlder');
+  assert.equal(await text(), 'catatan tengah');
+  await go('#noteOlder');
+  assert.equal(await pos(), '3/3');
+  assert.equal(await text(), 'catatan tertua\nbaris dua');
+  assert.equal(await win.$eval('#noteOlder', (e) => e.disabled), true, 'sudah yang paling lama');
+
+  // urutan mengikuti waktu diubah: menyentuh yang tertua menjadikannya yang terbaru
+  fs.utimesSync(path.join(dir, 'a-tertua.txt'), new Date(), new Date());
+  await go('#noteNewer'); // yang dilihat kini yang terbaru, jadi › kembali ke draf
+  assert.equal(await pos(), 'Draf');
+  await go('#noteOlder');
+  assert.equal(await pos(), '1/3');
+  assert.equal(await text(), 'catatan tertua\nbaris dua', 'daftar dimuat ulang: yang baru disentuh kini paling depan');
+  await go('#noteOlder');
+  assert.equal(await text(), 'catatan terbaru');
+
+  // kembali ke draf lewat ›, isinya utuh
+  await go('#noteNewer');
+  await go('#noteNewer');
+  assert.equal(await pos(), 'Draf');
+  assert.equal(await text(), 'draf saya yang belum disimpan');
+
+  // mengubah berkas lalu pindah: peringatan dulu, tekan lagi baru lanjut; draf tidak tertimpa
+  await go('#noteOlder');
+  await win.fill('#noteText', 'berkas diubah');
+  await go('#noteOlder');
+  assert.match(await win.textContent('#noteStatus'), /belum disimpan/);
+  assert.equal(await text(), 'berkas diubah', 'peringatan: belum pindah');
+  await go('#noteNewer');
+  assert.equal(await pos(), 'Draf');
+  assert.equal(await text(), 'draf saya yang belum disimpan');
+  await sleep(400);
+  assert.equal(JSON.parse(await win.evaluate(() => localStorage.getItem('note'))), 'draf saya yang belum disimpan');
+
+  // Simpan saat melihat berkas membuat berkas baru, berkas asli tidak ditimpa
+  await go('#noteOlder');
+  const original = await text();
+  await win.fill('#noteText', original + ' + tambahan');
+  await win.click('#noteSave');
+  await sleep(400);
+  assert.equal(fs.readdirSync(dir).filter((f) => f.endsWith('.txt')).length, 4);
+  assert.equal(await pos(), '1/4');
+  assert.match(fs.readFileSync(path.join(dir, 'a-tertua.txt'), 'utf8'), /^\uFEFFcatatan tertua/);
+
+  // hanya berkas .txt di folder catatan yang boleh dibaca
+  const bad = await win.evaluate(() => Promise.all([
+    window.api.noteRead('C:\\Windows\\win.ini'), window.api.noteRead('../../etc/passwd'),
+  ]));
+  assert.deepEqual(bad.map((r) => r.ok), [false, false]);
+  const docx = await win.evaluate((p) => window.api.noteRead(p), path.join(dir, 'bukan-catatan.docx'));
+  assert.equal(docx.ok, false);
+});

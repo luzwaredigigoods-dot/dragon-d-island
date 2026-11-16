@@ -17,7 +17,7 @@ const hhmm = (min) => `${pad(Math.floor(min / 60) % 24)}:${pad(min % 60)}`;
 
 // ---------- ukuran pulau ----------
 const BASE_W = 560;
-const SHELF_PAGE = 1, PRAY_PAGE = 3, CLAUDE_PAGE = 5;
+const SHELF_PAGE = 1, PRAY_PAGE = 3, NOTES_PAGE = 4, CLAUDE_PAGE = 5;
 const BASE_H = 196, CLAUDE_H = 300; // tinggi panel; halaman Claude lebih tinggi untuk chat & daftar sesi
 let islandH = BASE_H;
 const PILL_W = 236; // lebar pil (sama dengan #island di style.css)
@@ -245,7 +245,7 @@ function showPage(i) {
   [...dots.children].forEach((d, n) => d.classList.toggle('on', n === pageIdx));
   $('pageTitle').innerHTML = pages[pageIdx].dataset.title;
   bindShelfButtons();
-  if ($('noteCount')) noteChanged();
+  if ($('noteCount')) { noteCount(); if (pageIdx === NOTES_PAGE) noteRefreshNav(); }
   save('page2', pageIdx);
   layout();
   if (pageIdx === SHELF_PAGE && wrap.classList.contains('expanded')) refreshSpecials();
@@ -628,10 +628,17 @@ $('todoInput').addEventListener('keydown', (e) => {
 const noteEl = $('noteText');
 noteEl.value = load('note', '');
 let noteTimer = null;
-function noteChanged() {
+// Posisi di daftar catatan: "draf" (yang sedang diketik, tersimpan otomatis) atau salah satu berkas
+// tersimpan. Saat melihat berkas, draf disimpan terpisah dan teks yang diubah tidak ikut menimpanya.
+const noteView = { path: null, dirty: false, armed: 0 };
+function noteCount() {
   const n = noteEl.value.length;
   const c = $('noteCount');
   if (c) c.textContent = n ? `${n} huruf` : '';
+}
+function noteChanged() {
+  noteCount();
+  if (noteView.path) { noteView.dirty = true; return; } // sedang melihat berkas: bukan draf
   clearTimeout(noteTimer);
   noteTimer = setTimeout(() => save('note', noteEl.value), 300);
 }
@@ -674,9 +681,64 @@ $('noteCopy').onclick = () => {
 $('noteSave').onclick = async () => {
   if (!noteEl.value.trim()) { noteStatus('Catatan masih kosong'); return; }
   const res = api ? await api.noteSave(noteEl.value) : null;
-  if (res && res.ok) { noteStatus(`Tersimpan: ${res.name} (klik untuk buka folder)`, () => api.shelfReveal(res.path)); mood('happy', 1300); }
+  if (res && res.ok) {
+    if (noteView.path) { noteView.path = res.path; noteView.dirty = false; } // yang dilihat kini berkas baru ini
+    noteStatus(`Tersimpan: ${res.name} (klik untuk buka folder)`, () => api.shelfReveal(res.path)); mood('happy', 1300); noteRefreshNav();
+  }
   else noteStatus(`Gagal menyimpan${res && res.error ? ': ' + res.error : ''}`);
 };
+// ---- buka catatan tersimpan: ‹ = lebih lama, › = lebih baru (urut waktu terakhir diubah) ----
+const fmtNoteTime = (ms) => new Date(ms).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+function noteShowPos(list) {
+  const i = noteView.path ? list.findIndex((f) => f.path === noteView.path) : -1;
+  const pos = $('notePos');
+  pos.textContent = noteView.path ? `${i + 1}/${list.length}` : 'Draf';
+  pos.classList.toggle('file', !!noteView.path);
+  pos.title = noteView.path ? list[i] && list[i].name : 'Catatan yang sedang diketik';
+  // Dari draf, ‹ selalu aktif (daftarnya dimuat saat ditekan); di berkas terlama baru nonaktif.
+  $('noteOlder').disabled = i >= 0 && i === list.length - 1;
+  $('noteNewer').disabled = !noteView.path;
+}
+async function noteRefreshNav() {
+  const list = api ? await api.noteList() : [];
+  if (noteView.path && !list.some((f) => f.path === noteView.path)) { // berkasnya sudah dihapus
+    noteView.path = null; noteView.dirty = false;
+  }
+  noteShowPos(list);
+  return list;
+}
+async function noteGo(dir) { // dir: +1 lebih lama, -1 lebih baru
+  const list = await noteRefreshNav();
+  if (noteView.dirty && Date.now() - noteView.armed > 3000) { // perubahan di berkas belum disimpan
+    noteView.armed = Date.now();
+    noteStatus('Ada perubahan belum disimpan. Tekan lagi untuk lanjut (perubahan hilang)');
+    return;
+  }
+  const i = noteView.path ? list.findIndex((f) => f.path === noteView.path) : -1;
+  const target = i + dir;
+  if (target < -1 || target >= list.length) { noteStatus(list.length ? 'Itu catatan paling lama' : 'Belum ada catatan tersimpan'); return; }
+  if (target === -1) { // kembali ke draf
+    noteView.path = null; noteView.dirty = false;
+    noteEl.value = load('note', '');
+    noteCount(); noteShowPos(list);
+    noteStatus('Kembali ke draf');
+    return;
+  }
+  const f = list[target];
+  const r = await api.noteRead(f.path);
+  if (!r || !r.ok) { noteStatus(`Gagal membuka${r && r.error ? ': ' + r.error : ''}`); return; }
+  if (!noteView.path) save('note', noteEl.value); // draf aman sebelum diganti isi berkas
+  clearTimeout(noteTimer);
+  noteView.path = f.path; noteView.dirty = false; noteView.armed = 0;
+  noteEl.value = r.text;
+  noteEl.scrollTop = 0;
+  noteCount(); noteShowPos(list);
+  noteStatus(`${f.name} · diubah ${fmtNoteTime(f.mtime)}`, () => api.shelfReveal(f.path));
+}
+$('noteOlder').onclick = () => noteGo(1);
+$('noteNewer').onclick = () => noteGo(-1);
+noteRefreshNav();
+
 let noteClearArmed = 0;
 $('noteClear').onclick = () => {
   if (!noteEl.value) return;

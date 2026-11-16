@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('api', {
   clipRead: () => ipcRenderer.invoke('clip:read'),
   clipWrite: (text) => ipcRenderer.send('clip:write', text),
   noteSave: (text) => ipcRenderer.invoke('note:save', text),
+  noteList: () => ipcRenderer.invoke('note:list'),
+  noteRead: (file) => ipcRenderer.invoke('note:read', file),
   claude: {
     status: () => ipcRenderer.invoke('claude:status'),
     setKey: (key) => ipcRenderer.invoke('claude:setKey', key),

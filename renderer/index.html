@@ -133,6 +133,11 @@
             <div class="notes">
               <textarea id="noteText" spellcheck="false" placeholder="Tempel (Ctrl+V) atau ketik catatan cepat di sini..."></textarea>
               <div class="note-btns">
+                <div class="note-nav" title="Buka catatan tersimpan, urut dari yang terakhir diubah">
+                  <button class="chip" id="noteOlder" aria-label="Catatan lebih lama">&lsaquo;</button>
+                  <span id="notePos">Draf</span>
+                  <button class="chip" id="noteNewer" aria-label="Catatan lebih baru">&rsaquo;</button>
+                </div>
                 <button class="chip" id="notePaste" title="Tempel isi clipboard ke catatan">Tempel</button>
                 <button class="chip" id="noteCopy" title="Salin seluruh catatan (atau bagian yang dipilih)">Salin</button>
                 <button class="chip accent" id="noteSave" title="Simpan sebagai file .txt di Documents\Dragon Dynamic Island Notes">Simpan</button>

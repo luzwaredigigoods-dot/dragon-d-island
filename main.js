@@ -795,10 +795,36 @@ ipcMain.handle('shelf:info', (_e, filePath) => fileInfo(String(filePath)));
 // ---------- Notes ----------
 ipcMain.handle('clip:read', () => { try { return clipboard.readText(); } catch (_) { return ''; } });
 ipcMain.on('clip:write', (_e, text) => { try { clipboard.writeText(String(text)); } catch (err) { log('clipboard gagal:', String(err)); } });
+const notesDir = () => path.join(app.getPath('documents'), APP_NAME + ' Notes');
+// Daftar catatan tersimpan, yang paling baru diubah di depan (untuk tombol ‹ › di halaman Notes).
+ipcMain.handle('note:list', () => {
+  try {
+    const dir = notesDir();
+    return fs.readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isFile() && /\.txt$/i.test(e.name))
+      .map((e) => { const p = path.join(dir, e.name); return { path: p, name: e.name, mtime: fs.statSync(p).mtimeMs }; })
+      .sort((a, b) => b.mtime - a.mtime || (a.name < b.name ? 1 : -1))
+      .slice(0, 500);
+  } catch (_) { return []; } // folder belum ada
+});
+// Membaca satu catatan. Hanya berkas .txt di dalam folder catatan yang boleh dibaca.
+ipcMain.handle('note:read', (_e, file) => {
+  try {
+    const dir = path.resolve(notesDir());
+    const p = path.resolve(String(file || ''));
+    if (path.dirname(p) !== dir || !/\.txt$/i.test(p)) return { ok: false, error: 'Bukan catatan' };
+    const st = fs.statSync(p);
+    if (st.size > 2 * 1024 * 1024) return { ok: false, error: 'Berkas terlalu besar (>2 MB)' };
+    const text = fs.readFileSync(p, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+    return { ok: true, text, name: path.basename(p), path: p, mtime: st.mtimeMs };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err).slice(0, 120) };
+  }
+});
 // Menyimpan catatan sebagai file .txt di Documents\Dragon Dynamic Island Notes (nama file = tanggal & jam).
 ipcMain.handle('note:save', (_e, text) => {
   try {
-    const dir = path.join(app.getPath('documents'), APP_NAME + ' Notes');
+    const dir = notesDir();
     fs.mkdirSync(dir, { recursive: true });
     const d = new Date();
     const pad = (n) => String(n).padStart(2, '0');
