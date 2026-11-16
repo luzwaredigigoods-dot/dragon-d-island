@@ -220,6 +220,23 @@ function buildTrayMenu() {
   tray.setContextMenu(menu);
 }
 
+// Pindah dari versi zip ke versi terpasang: "Jalankan saat Windows menyala" yang masih menunjuk ke
+// Dragon Dynamic Island.exe di folder lama dipindahkan ke lokasi aplikasi yang sekarang.
+function migrateAutostart() {
+  if (process.platform !== 'win32') return;
+  try {
+    const s = app.getLoginItemSettings();
+    if (s.openAtLogin) return;
+    const me = process.execPath.toLowerCase();
+    const exe = path.win32.basename(me);
+    const old = (s.launchItems || []).find((i) => i.enabled !== false && i.path
+      && path.win32.basename(i.path).toLowerCase() === exe && i.path.toLowerCase() !== me);
+    if (!old) return;
+    app.setLoginItemSettings({ openAtLogin: true });
+    log('jalankan saat Windows menyala dipindah dari', old.path);
+  } catch (err) { log('pindah autostart gagal:', String(err)); }
+}
+
 // Shortcut berlogo di Desktop: dibuat sekali saat pertama dijalankan, atau lewat menu tray.
 function makeDesktopShortcut(force) {
   if (!isWin || !app.isPackaged && !force) return;
@@ -825,6 +842,7 @@ if (!app.requestSingleInstanceLock()) {
     startMediaWatcher();
     startWindowWatcher();
     makeDesktopShortcut(false);
+    migrateAutostart();
     watchCursor();
     globalShortcut.register('Control+Alt+I', toggleVisible);
   });

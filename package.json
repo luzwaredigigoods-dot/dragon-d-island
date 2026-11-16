@@ -1,6 +1,6 @@
 {
   "name": "dragon-dynamic-island",
-  "version": "3.7.2",
+  "version": "3.8.0",
   "description": "Dynamic island pribadi untuk Windows",
   "main": "main.js",
   "scripts": {
@@ -12,6 +12,7 @@
   "license": "UNLICENSED",
   "devDependencies": {
     "electron": "^33.4.11",
+    "esbuild": "^0.24.2",
     "playwright": "^1.63.0",
     "png-to-ico": "^2.1.8",
     "resedit": "^1.7.2"

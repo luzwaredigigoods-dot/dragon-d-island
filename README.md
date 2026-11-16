@@ -80,7 +80,7 @@ Tab **Chat** memakai Claude API dengan model Claude Opus 5.5 (bisa diganti Sonne
 
 ## Menjalankan
 
-Untuk pengguna: buat zip Windows (lihat di bawah), ekstrak, lalu jalankan `Dragon Dynamic Island.exe`.
+Untuk pengguna: jalankan `Dragon-Dynamic-Island-Setup-v<versi>.exe` (lihat di bawah). Aplikasi dipasang ke `%LOCALAPPDATA%\Programs\Dragon Dynamic Island` tanpa hak administrator, dengan shortcut di Desktop dan Start menu serta pencopot di *Settings → Apps*. Memasang versi baru cukup dengan menjalankan pemasangnya lagi; data (shelf, todo, notes, pengaturan) tetap. Pindah dari versi zip: setelah memasang, folder zip lama boleh dihapus; *Jalankan saat Windows menyala* ikut dipindahkan otomatis.
 
 Versi sebelum 3.2 bernama **Pulau**. Saat pertama dijalankan, data dari `%APPDATA%\Pulau` (todo, shelf, catatan, pengaturan) disalin otomatis. Shortcut Desktop lama diganti yang baru; centang "Jalankan saat Windows menyala" perlu dinyalakan ulang dari tray.
 
@@ -114,13 +114,13 @@ xvfb-run -a npm test
 
 Bagian yang memakai PowerShell (media dari Windows, deteksi jendela penuh, ikon aplikasi Store dan My Computer/Trash) tidak bisa diuji otomatis di luar Windows; tes memakai data tiruan untuk tampilannya.
 
-## Membuat zip Windows
+## Membuat pemasang Windows
 
 ```bash
 npm run build:win
 ```
 
-Hasilnya `dist/Dragon-Dynamic-Island-v<versi>-win-x64.zip`. Skrip mengunduh Electron untuk Windows, menanam logo dan nama ke `Dragon Dynamic Island.exe`, dan menyalin kode aplikasi ke `resources/app`. Bisa dijalankan dari Linux, macOS, atau Git Bash; butuh `node`, `curl`, `unzip`, dan `zip`.
+Hasilnya `dist/Dragon-Dynamic-Island-Setup-v<versi>.exe` (pemasang NSIS, kompresi LZMA, ±75 MB) dan `dist/Dragon-Dynamic-Island-v<versi>-win-x64.zip` (versi portabel, ±105 MB). Skrip mengunduh Electron untuk Windows, menanam logo dan nama ke `Dragon Dynamic Island.exe`, menyalin kode aplikasi ke `resources/app`, menggabungkan SDK Anthropic ke `claude-chat.js` dengan esbuild (tanpa `node_modules`), dan hanya menyertakan bahasa Inggris dan Indonesia. Bisa dijalankan dari Linux, macOS, atau Git Bash; butuh `node`, `curl`, `unzip`, `zip`, dan `makensis` (paket `nsis`) untuk pemasang. Ukuran terbesar adalah Electron sendiri (Chromium + Node.js).
 
 ## Struktur
 
