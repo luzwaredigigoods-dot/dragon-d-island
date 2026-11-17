@@ -822,19 +822,30 @@ ipcMain.handle('note:read', (_e, file) => {
   }
 });
 // Menyimpan catatan sebagai file .txt di Documents\Dragon Dynamic Island Notes (nama file = tanggal & jam).
-ipcMain.handle('note:save', (_e, text) => {
+// existingFile: catatan yang sedang dibuka lewat ‹ › — ditimpa, tidak dibuat berkas baru.
+ipcMain.handle('note:save', (_e, text, existingFile) => {
   try {
     const dir = notesDir();
     fs.mkdirSync(dir, { recursive: true });
-    const d = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    const base = `Catatan ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}.${pad(d.getMinutes())}`;
-    let file = path.join(dir, base + '.txt');
-    for (let i = 2; fs.existsSync(file); i++) file = path.join(dir, `${base} (${i}).txt`);
+    let file = null, overwrote = false;
+    if (existingFile) {
+      const p = path.resolve(String(existingFile));
+      if (path.dirname(p) !== path.resolve(dir) || !/\.txt$/i.test(p)) return { ok: false, error: 'Bukan catatan' };
+      file = p; overwrote = fs.existsSync(p);
+    } else {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const base = `Catatan ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}.${pad(d.getMinutes())}`;
+      file = path.join(dir, base + '.txt');
+      for (let i = 2; fs.existsSync(file); i++) file = path.join(dir, `${base} (${i}).txt`);
+    }
     // BOM agar Notepad lama membaca huruf non-Latin dengan benar; baris baru gaya Windows.
-    fs.writeFileSync(file, '\uFEFF' + String(text).replace(/\r?\n/g, '\r\n'), 'utf8');
-    log('catatan disimpan:', path.basename(file), String(text).length, 'huruf');
-    return { ok: true, path: file, name: path.basename(file) };
+    // Ditulis ke berkas sementara lalu diganti, supaya catatan lama tidak rusak bila gagal di tengah jalan.
+    const data = '\uFEFF' + String(text).replace(/\r?\n/g, '\r\n');
+    if (overwrote) { const tmp = file + '.tmp'; fs.writeFileSync(tmp, data, 'utf8'); fs.renameSync(tmp, file); }
+    else fs.writeFileSync(file, data, 'utf8');
+    log(overwrote ? 'catatan ditimpa:' : 'catatan disimpan:', path.basename(file), String(text).length, 'huruf');
+    return { ok: true, path: file, name: path.basename(file), overwrote };
   } catch (err) {
     log('catatan gagal disimpan:', String(err));
     return { ok: false, error: String(err && err.message || err).slice(0, 120) };

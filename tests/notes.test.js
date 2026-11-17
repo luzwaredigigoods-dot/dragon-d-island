@@ -144,15 +144,24 @@ test('buka catatan tersimpan dengan ‹ ›: urut terakhir diubah, draf aman, ti
   await sleep(400);
   assert.equal(JSON.parse(await win.evaluate(() => localStorage.getItem('note'))), 'draf saya yang belum disimpan');
 
-  // Simpan saat melihat berkas membuat berkas baru, berkas asli tidak ditimpa
+  // Simpan saat membuka berkas lama menimpa berkas itu (tidak ada berkas baru, tidak ada sisa .tmp)
   await go('#noteOlder');
-  const original = await text();
-  await win.fill('#noteText', original + ' + tambahan');
+  assert.equal(await text(), 'catatan tertua\nbaris dua');
+  await win.fill('#noteText', 'catatan tertua\nbaris dua + tambahan');
   await win.click('#noteSave');
   await sleep(400);
+  assert.match(await win.textContent('#noteStatus'), /^Ditimpa: a-tertua\.txt/);
+  assert.deepEqual(fs.readdirSync(dir).sort(), ['a-tertua.txt', 'b-tengah.txt', 'bukan-catatan.docx', 'c-terbaru.txt']);
+  const buf = fs.readFileSync(path.join(dir, 'a-tertua.txt'));
+  assert.deepEqual([...buf.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
+  assert.equal(buf.toString('utf8').slice(1), 'catatan tertua\r\nbaris dua + tambahan');
+  assert.equal(await pos(), '1/3', 'berkas yang baru ditimpa menjadi yang terbaru');
+  await go('#noteNewer'); // kembali ke draf: Simpan dari draf tetap membuat berkas baru
+  assert.equal(await pos(), 'Draf');
+  await win.click('#noteSave');
+  await sleep(400);
+  assert.match(await win.textContent('#noteStatus'), /^Tersimpan: Catatan /);
   assert.equal(fs.readdirSync(dir).filter((f) => f.endsWith('.txt')).length, 4);
-  assert.equal(await pos(), '1/4');
-  assert.match(fs.readFileSync(path.join(dir, 'a-tertua.txt'), 'utf8'), /^\uFEFFcatatan tertua/);
 
   // hanya berkas .txt di folder catatan yang boleh dibaca
   const bad = await win.evaluate(() => Promise.all([

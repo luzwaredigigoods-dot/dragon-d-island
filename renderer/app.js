@@ -680,10 +680,11 @@ $('noteCopy').onclick = () => {
 };
 $('noteSave').onclick = async () => {
   if (!noteEl.value.trim()) { noteStatus('Catatan masih kosong'); return; }
-  const res = api ? await api.noteSave(noteEl.value) : null;
+  // Sedang membuka catatan tersimpan: simpan = timpa berkas itu. Draf: berkas baru.
+  const res = api ? await api.noteSave(noteEl.value, noteView.path || undefined) : null;
   if (res && res.ok) {
-    if (noteView.path) { noteView.path = res.path; noteView.dirty = false; } // yang dilihat kini berkas baru ini
-    noteStatus(`Tersimpan: ${res.name} (klik untuk buka folder)`, () => api.shelfReveal(res.path)); mood('happy', 1300); noteRefreshNav();
+    if (noteView.path) { noteView.dirty = false; noteView.armed = 0; }
+    noteStatus(`${res.overwrote ? 'Ditimpa' : 'Tersimpan'}: ${res.name} (klik untuk buka folder)`, () => api.shelfReveal(res.path)); mood('happy', 1300); noteRefreshNav();
   }
   else noteStatus(`Gagal menyimpan${res && res.error ? ': ' + res.error : ''}`);
 };

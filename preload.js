@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld('api', {
   onDragDrop: (cb) => ipcRenderer.on('drag:drop', (_e, data) => cb(data)),
   clipRead: () => ipcRenderer.invoke('clip:read'),
   clipWrite: (text) => ipcRenderer.send('clip:write', text),
-  noteSave: (text) => ipcRenderer.invoke('note:save', text),
+  noteSave: (text, existingFile) => ipcRenderer.invoke('note:save', text, existingFile),
   noteList: () => ipcRenderer.invoke('note:list'),
   noteRead: (file) => ipcRenderer.invoke('note:read', file),
   claude: {
