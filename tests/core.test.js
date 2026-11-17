@@ -129,6 +129,31 @@ test('ukuran dari menu tray mengubah skala dan tersimpan', async () => {
   await sleep(400);
 });
 
+test('kursor naga: panah bermata, oranye di atas tombol, I-beam di kotak teks; bisa dimatikan', async () => {
+  const { win } = t;
+  await t.open();
+  await t.page(5); // Notes
+  const cur = (sel) => win.$eval(sel, (e) => getComputedStyle(e).cursor);
+  assert.match(await cur('#island'), /a-normal\.png.*3 2/, 'bagian polos pulau: panah bermata');
+  assert.match(await cur('#next'), /a-link\.png/, 'tombol: panah oranye');
+  assert.match(await cur('#noteSave'), /a-link\.png/);
+  assert.match(await cur('#noteText'), /a-ibeam\.png/, 'kotak teks: I-beam');
+  assert.match(await cur('#dragon'), /a-link\.png/);
+  // semua gambar kursor dapat dimuat, ukuran 28 px dan 56 px (layar tajam)
+  const sizes = await win.evaluate(() => Promise.all(['normal', 'link', 'busy', 'ibeam'].flatMap((n) => ['', '@2x'].map((x) => new Promise((ok) => {
+    const i = new Image(); i.onload = () => ok(i.naturalWidth); i.onerror = () => ok(0); i.src = `cursors/a-${n}${x}.png`;
+  })))));
+  assert.deepEqual(sizes, [28, 56, 28, 56, 28, 56, 28, 56]);
+  // dimatikan dari menu tray: kembali ke kursor Windows
+  await t.send('cursor', false);
+  await sleep(100);
+  assert.equal(await cur('#next'), 'pointer');
+  assert.equal(await cur('#noteText'), 'text', 'kotak teks kembali ke I-beam Windows');
+  await t.send('cursor', true);
+  await sleep(100);
+  assert.match(await cur('#next'), /a-link\.png/);
+});
+
 test('peringatan saat berjalan sebagai administrator', async () => {
   await t.send('admin', true);
   await sleep(200);

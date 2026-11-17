@@ -45,6 +45,7 @@ function layout() {
   else api.setRect({ w: (PILL_W + 36) * K, h: (38 + 56) * K, bw: (PILL_W - 34) * K, bh: (38 - 19) * K });
 }
 window.addEventListener('resize', () => layout());
+if (api && api.onCursor) api.onCursor((dragon) => document.documentElement.classList.toggle('plain-cursor', !dragon));
 if (api && api.onScale) api.onScale((k) => { K = Math.min(1.2, Math.max(0.5, Number(k) || 0.82)); save('scale', K); layout(); });
 
 // ---------- buka / tutup pulau ----------
@@ -1017,6 +1018,7 @@ function clSetBusy(b) {
   cl.busy = b;
   $('clSend').textContent = b ? 'Stop' : 'Kirim';
   $('clSend').classList.toggle('stop', b);
+  document.documentElement.classList.toggle('chat-busy', b); // kursor sibuk di area percakapan
 }
 function clShowKey(show) {
   $('clKeyBox').hidden = !show;

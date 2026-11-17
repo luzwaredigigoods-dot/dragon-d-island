@@ -380,3 +380,20 @@ input, select { background: #17171a; border: 1px solid #2f2f35; color: #fff; bor
 #dragon.excited .paw, #dragon.hungry .paw { transform: translateY(-2px) rotate(var(--r)) scale(1.1); }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* ---------- kursor naga (konsep A: panah bermata) ----------
+   Hanya berlaku di dalam pulau. Dimatikan lewat menu tray (kelas .plain-cursor di <html>).
+   Gambar dibuat tools/make-cursors.js; hotspot (3 2) = ujung panah. */
+html:not(.plain-cursor) {
+  --cur-normal: -webkit-image-set(url(cursors/a-normal.png) 1x, url(cursors/a-normal@2x.png) 2x) 3 2, default;
+  --cur-link: -webkit-image-set(url(cursors/a-link.png) 1x, url(cursors/a-link@2x.png) 2x) 3 2, pointer;
+  --cur-text: -webkit-image-set(url(cursors/a-ibeam.png) 1x, url(cursors/a-ibeam@2x.png) 2x) 14 14, text;
+  --cur-busy: -webkit-image-set(url(cursors/a-busy.png) 1x, url(cursors/a-busy@2x.png) 2x) 14 14, progress;
+}
+html:not(.plain-cursor) * { cursor: var(--cur-normal); }
+html:not(.plain-cursor) :is(button, .chip, .nav, .navicon, .app, .file, #shelfHint, #todoList li, .cs, .cl-usage, .note-status.link, .msg .cp, #dragon, select, label) { cursor: var(--cur-link); }
+html:not(.plain-cursor) :is(button, .chip):disabled { cursor: var(--cur-normal); }
+html:not(.plain-cursor) :is(textarea, input) { cursor: var(--cur-text); }
+html:not(.plain-cursor) #shelfBox.editing .file { cursor: grab; }
+html:not(.plain-cursor) #shelfBox.editing .file.moving { cursor: grabbing; }
+html.chat-busy:not(.plain-cursor) #clLog, html.chat-busy:not(.plain-cursor) #clLog * { cursor: var(--cur-busy); }

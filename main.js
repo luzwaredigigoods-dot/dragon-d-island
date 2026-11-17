@@ -71,7 +71,7 @@ function log(...parts) {
     fs.appendFileSync(logPath, line);
   } catch (_) { /* log tidak boleh mengganggu aplikasi */ }
 }
-let settings = { dodge: 'auto', claudeSound: 'naga', cloudOpen: 'desktop' }; // dodge: auto | always | off
+let settings = { dodge: 'auto', claudeSound: 'naga', cloudOpen: 'desktop', dragonCursor: true }; // dodge: auto | always | off
 function settingsPath() { return path.join(app.getPath('userData'), 'settings.json'); }
 function loadSettings() {
   try { settings = Object.assign(settings, JSON.parse(fs.readFileSync(settingsPath(), 'utf8'))); } catch (_) { /* bawaan */ }
@@ -157,7 +157,7 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => { win.showInactive(); placeCatcher(); });
   win.on('closed', () => { if (catcher && !catcher.isDestroyed()) catcher.destroy(); });
-  win.webContents.on('did-finish-load', () => { sendDodge(); if (isAdmin) send('admin', true); if (lastMediaError) send('media:update', { has: false, error: lastMediaError }); });
+  win.webContents.on('did-finish-load', () => { sendDodge(); send('cursor', settings.dragonCursor !== false); if (isAdmin) send('admin', true); if (lastMediaError) send('media:update', { has: false, error: lastMediaError }); });
   win.webContents.on('render-process-gone', (_e, d) => log('renderer mati', d));
   screen.on('display-metrics-changed', () => { placeWindow(); placeCatcher(); });
 }
@@ -195,6 +195,10 @@ function buildTrayMenu() {
           label, type: 'radio', checked: settings.claudeSound === v,
           click: () => { settings.claudeSound = v; saveSettings(); log('suara notifikasi:', v); if (v !== 'windows' && v !== 'diam') send('sound:play', v); },
         })),
+      },
+      {
+        label: 'Kursor naga di pulau', type: 'checkbox', checked: settings.dragonCursor !== false,
+        click: (item) => { settings.dragonCursor = item.checked; saveSettings(); send('cursor', item.checked); },
       },
       {
         label: 'Buka sesi cloud di',

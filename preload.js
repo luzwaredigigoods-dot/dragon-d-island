@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('api', {
   },
   onAdmin: (cb) => ipcRenderer.on('admin', (_e, on) => cb(on)),
   onThumb: (cb) => ipcRenderer.on('media:thumb', (_e, data) => cb(data)),
+  onCursor: (cb) => ipcRenderer.on('cursor', (_e, on) => cb(on)),
   onScale: (cb) => ipcRenderer.on('scale', (_e, k) => cb(k)),
   onCursor: (cb) => ipcRenderer.on('cursor', (_e, pos) => cb(pos)),
   onMedia: (cb) => ipcRenderer.on('media:update', (_e, data) => cb(data)),
