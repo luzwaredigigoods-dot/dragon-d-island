@@ -103,3 +103,23 @@ test('--cek tidak mengubah apa pun; settings rusak tidak ditimpa; alamat tidak a
   assert.notEqual(bad.status, 0);
   assert.match(bad.stderr, /https/);
 });
+
+test('SKILL.md satu berkas: skrip tertanam identik dengan sumber, tanpa rujukan ke folder skill, dan bisa dijalankan', async () => {
+  const gen = await new Promise((resolve) => execFile('python3', ['-I', path.join(ROOT, 'tools', 'make_skill_single.py')], { encoding: 'utf8' }, (e, o, er) => resolve({ ok: !e, out: o + er })));
+  assert.ok(gen.ok, gen.out);
+  const md = fs.readFileSync(path.join(ROOT, 'dist', 'skill-satu-berkas', 'SKILL.md'), 'utf8');
+  assert.match(md, /^---\nname: hubungkan-dragon-island\ndescription: /);
+  const m = /```python\n([\s\S]*?)\n```/.exec(md);
+  assert.ok(m, 'blok skrip ada');
+  const src = fs.readFileSync(SCRIPT, 'utf8');
+  assert.equal(m[1].trimEnd(), src.trimEnd());
+  assert.doesNotMatch(md.replace('scripts/cloud-setup-script.sh', ''), /scripts\//, 'tidak ada rujukan ke folder skill');
+  assert.match(md, /python3 \/tmp\/pasang_hook\.py/);
+  assert.doesNotMatch(md, /[0-9a-f]{40,}/, 'tanpa token');
+  // skrip hasil ekstraksi benar-benar berjalan
+  const f = path.join(dir, 'ekstrak.py');
+  fs.writeFileSync(f, m[1] + '\n');
+  const r = await new Promise((resolve) => execFile('python3', ['-I', f, '--cek', '--url', base], { encoding: 'utf8', env: { PATH: process.env.PATH, DRAGON_ISLAND_TOKEN: GOOD } }, (e, o) => resolve({ code: e ? 1 : 0, o })));
+  assert.equal(r.code, 0);
+  assert.match(r.o, /Pemeriksaan koneksi: ok/);
+});
