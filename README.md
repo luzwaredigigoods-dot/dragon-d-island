@@ -45,6 +45,10 @@ Batasan:
 - Bila Dragon Dynamic Island sedang tidak berjalan, hook gagal tersambung. Claude Code tetap bekerja normal, tetapi bisa menampilkan catatan "hook error". Klik **Lepas** untuk mencabut hooks.
 - File transkrip Claude Code tidak dibaca, karena formatnya internal dan bisa berubah tiap versi.
 
+### Skill `hubungkan-dragon-island`
+
+Untuk menghubungkan sesi cloud yang **sudah berjalan** (atau yang tidak muncul di pulau) tanpa menempel skrip panjang, ada skill di `.claude/skills/hubungkan-dragon-island/`. Claude di sesi itu memasang hook lewat `scripts/pasang_hook.py` (memakai `DRAGON_ISLAND_TOKEN` bila ada, atau token yang Anda tempel), lalu memeriksa koneksi ke laptop dan melaporkan penyebabnya bila gagal (token salah, pulau mati, Funnel mati). Skill otomatis tersedia di sesi cloud yang memakai repo ini; untuk semua sesi, unggah `dist/hubungkan-dragon-island-skill.zip` di claude.ai (*Settings → Capabilities → Skills*). Token tidak pernah tersimpan di skill. Skrip juga bisa dijalankan sendiri: `python3 scripts/pasang_hook.py --cek` hanya memeriksa koneksi.
+
 ### Sesi cloud (claude.ai/code)
 
 Sesi cloud berjalan di server Anthropic dan tidak membaca pengaturan di laptop. Agar kabarnya sampai ke pulau, laptop dibuka lewat Tailscale Funnel, dan environment cloud memasang hook di setiap mesin sesi lewat *setup script*. Hook-nya bertipe command yang menjalankan `curl`, karena hanya program yang memakai proxy jaringan cloud (`HTTPS_PROXY`) yang bisa keluar dari mesin sesi; hook bertipe `http` milik Claude Code tidak memakainya dan gagal (teruji 15 Nov 2026). Pemasangannya sekali per environment; berlaku untuk semua sesi di environment itu, dengan repo apa pun maupun tanpa repo.
