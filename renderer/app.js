@@ -684,22 +684,24 @@ $('noteSave').onclick = async () => {
   // Sedang membuka catatan tersimpan: simpan = timpa berkas itu. Draf: berkas baru.
   const res = api ? await api.noteSave(noteEl.value, noteView.path || undefined) : null;
   if (res && res.ok) {
-    if (noteView.path) { noteView.dirty = false; noteView.armed = 0; }
+    if (noteView.path) { noteView.dirty = false; noteView.armed = 0; } else save('noteSaved', noteEl.value);
     noteStatus(`${res.overwrote ? 'Ditimpa' : 'Tersimpan'}: ${res.name} (klik untuk buka folder)`, () => api.shelfReveal(res.path)); mood('happy', 1300); noteRefreshNav();
   }
   else noteStatus(`Gagal menyimpan${res && res.error ? ': ' + res.error : ''}`);
 };
-// ---- buka catatan tersimpan: ‹ = lebih lama, › = lebih baru (urut waktu terakhir diubah) ----
+// ---- buka catatan tersimpan: ‹ lebih lama, › lebih baru, » langsung ke yang terbaru (urut waktu dibuat) ----
+// Urutan: Draf (yang sedang dikerjakan = paling baru) di ujung, lalu berkas dari yang terakhir dibuat.
 const fmtNoteTime = (ms) => new Date(ms).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 function noteShowPos(list) {
   const i = noteView.path ? list.findIndex((f) => f.path === noteView.path) : -1;
   const pos = $('notePos');
   pos.textContent = noteView.path ? `${i + 1}/${list.length}` : 'Draf';
-  pos.classList.toggle('file', !!noteView.path);
-  pos.title = noteView.path ? list[i] && list[i].name : 'Catatan yang sedang diketik';
+  pos.classList.toggle('on', !!noteView.path); // bukan 'file': bentrok dengan .file milik ikon shelf
+  pos.title = noteView.path ? list[i] && list[i].name : 'Catatan yang sedang dikerjakan';
   // Dari draf, ‹ selalu aktif (daftarnya dimuat saat ditekan); di berkas terlama baru nonaktif.
   $('noteOlder').disabled = i >= 0 && i === list.length - 1;
   $('noteNewer').disabled = !noteView.path;
+  $('noteLatest').disabled = !noteView.path;
 }
 async function noteRefreshNav() {
   const list = api ? await api.noteList() : [];
@@ -709,21 +711,21 @@ async function noteRefreshNav() {
   noteShowPos(list);
   return list;
 }
-async function noteGo(dir) { // dir: +1 lebih lama, -1 lebih baru
-  const list = await noteRefreshNav();
-  if (noteView.dirty && Date.now() - noteView.armed > 3000) { // perubahan di berkas belum disimpan
+// Perubahan di berkas yang dibuka belum disimpan: tekan sekali untuk peringatan, dua kali untuk lanjut.
+function noteBlocked() {
+  if (noteView.dirty && Date.now() - noteView.armed > 3000) {
     noteView.armed = Date.now();
     noteStatus('Ada perubahan belum disimpan. Tekan lagi untuk lanjut (perubahan hilang)');
-    return;
+    return true;
   }
-  const i = noteView.path ? list.findIndex((f) => f.path === noteView.path) : -1;
-  const target = i + dir;
-  if (target < -1 || target >= list.length) { noteStatus(list.length ? 'Itu catatan paling lama' : 'Belum ada catatan tersimpan'); return; }
+  return false;
+}
+async function noteOpenIndex(target, list) { // -1 = draf, 0.. = berkas (0 = paling baru dibuat)
   if (target === -1) { // kembali ke draf
-    noteView.path = null; noteView.dirty = false;
+    noteView.path = null; noteView.dirty = false; noteView.armed = 0;
     noteEl.value = load('note', '');
     noteCount(); noteShowPos(list);
-    noteStatus('Kembali ke draf');
+    noteStatus('Catatan terbaru (draf)');
     return;
   }
   const f = list[target];
@@ -735,11 +737,47 @@ async function noteGo(dir) { // dir: +1 lebih lama, -1 lebih baru
   noteEl.value = r.text;
   noteEl.scrollTop = 0;
   noteCount(); noteShowPos(list);
-  noteStatus(`${f.name} · diubah ${fmtNoteTime(f.mtime)}`, () => api.shelfReveal(f.path));
+  noteStatus(`${f.name} · dibuat ${fmtNoteTime(f.created)}`, () => api.shelfReveal(f.path));
+}
+async function noteGo(dir) { // dir: +1 lebih lama, -1 lebih baru
+  const list = await noteRefreshNav();
+  if (noteBlocked()) return;
+  const i = noteView.path ? list.findIndex((f) => f.path === noteView.path) : -1;
+  const target = i + dir;
+  if (target < -1 || target >= list.length) { noteStatus(list.length ? 'Itu catatan paling lama' : 'Belum ada catatan tersimpan'); return; }
+  await noteOpenIndex(target, list);
 }
 $('noteOlder').onclick = () => noteGo(1);
 $('noteNewer').onclick = () => noteGo(-1);
+$('noteLatest').onclick = async () => { // langsung ke yang terbaru: draf / catatan yang sedang dikerjakan
+  const list = await noteRefreshNav();
+  if (!noteView.path) { noteStatus('Sudah di catatan terbaru'); return; }
+  if (noteBlocked()) return;
+  await noteOpenIndex(-1, list);
+};
 noteRefreshNav();
+
+// Catatan baru: kotak dikosongkan. Draf yang belum pernah disimpan disimpan otomatis ke berkas baru lebih dulu,
+// jadi tidak ada tulisan yang hilang; draf yang sudah disimpan tidak digandakan.
+$('noteNew').onclick = async () => {
+  if (noteBlocked()) return;
+  const draft = noteView.path ? load('note', '') : noteEl.value;
+  let msg = 'Catatan baru';
+  if (draft.trim() && draft !== load('noteSaved', '')) {
+    const res = api ? await api.noteSave(draft) : null;
+    if (!res || !res.ok) { noteStatus(`Draf lama gagal disimpan, catatan baru dibatalkan${res && res.error ? ': ' + res.error : ''}`); return; }
+    msg = `Draf lama disimpan: ${res.name}. Catatan baru dibuka`;
+  }
+  clearTimeout(noteTimer);
+  noteView.path = null; noteView.dirty = false; noteView.armed = 0;
+  noteEl.value = '';
+  save('note', ''); save('noteSaved', '');
+  noteCount();
+  await noteRefreshNav();
+  noteEl.focus();
+  noteStatus(msg);
+  mood('happy', 900);
+};
 
 let noteClearArmed = 0;
 $('noteClear').onclick = () => {

@@ -800,14 +800,22 @@ ipcMain.handle('shelf:info', (_e, filePath) => fileInfo(String(filePath)));
 ipcMain.handle('clip:read', () => { try { return clipboard.readText(); } catch (_) { return ''; } });
 ipcMain.on('clip:write', (_e, text) => { try { clipboard.writeText(String(text)); } catch (err) { log('clipboard gagal:', String(err)); } });
 const notesDir = () => path.join(app.getPath('documents'), APP_NAME + ' Notes');
-// Daftar catatan tersimpan, yang paling baru diubah di depan (untuk tombol ‹ › di halaman Notes).
+// Waktu catatan dibuat: dari nama berkas buatan aplikasi ("Catatan 2026-11-16 05.30.txt", "(2)" = detik berikutnya),
+// supaya urutan tidak berubah saat berkas ditimpa atau disalin; berkas lain memakai waktu dibuat dari sistem berkas.
+const NOTE_NAME = /^Catatan (\d{4})-(\d{2})-(\d{2}) (\d{2})\.(\d{2})(?: \((\d+)\))?\.txt$/i;
+function noteCreated(name, st) {
+  const m = NOTE_NAME.exec(name);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime() + (m[6] ? (+m[6] - 1) * 1000 : 0);
+  return st.birthtimeMs > 0 ? st.birthtimeMs : st.mtimeMs;
+}
+// Daftar catatan tersimpan, yang paling baru dibuat di depan (untuk tombol ‹ › » di halaman Notes).
 ipcMain.handle('note:list', () => {
   try {
     const dir = notesDir();
     return fs.readdirSync(dir, { withFileTypes: true })
       .filter((e) => e.isFile() && /\.txt$/i.test(e.name))
-      .map((e) => { const p = path.join(dir, e.name); return { path: p, name: e.name, mtime: fs.statSync(p).mtimeMs }; })
-      .sort((a, b) => b.mtime - a.mtime || (a.name < b.name ? 1 : -1))
+      .map((e) => { const p = path.join(dir, e.name); const st = fs.statSync(p); return { path: p, name: e.name, mtime: st.mtimeMs, created: noteCreated(e.name, st) }; })
+      .sort((a, b) => b.created - a.created || (a.name < b.name ? 1 : -1))
       .slice(0, 500);
   } catch (_) { return []; } // folder belum ada
 });

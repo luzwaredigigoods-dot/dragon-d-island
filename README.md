@@ -10,7 +10,7 @@ Dynamic island pribadi untuk Windows: pil kecil di tepi atas layar, dengan naga 
 | Shelf | Ikon file dan aplikasi, jumlah tak terbatas; pulau memanjang mengikuti isinya. Bawaan: My Computer dan Trash. Mode **Edit** untuk menghapus dan mengubah urutan |
 | Todo List | Tugas harian; yang belum selesai terbawa ke hari berikutnya |
 | Jadwal Sholat | Lima waktu sholat (kriteria Kemenag) dan pengingat sebelum serta saat masuk waktu |
-| Notes | Catatan cepat; tempel, salin, dan simpan ke `Documents\Dragon Dynamic Island Notes` sebagai `.txt`. Tombol **‹ ›** membuka catatan tersimpan, urut dari yang terakhir diubah (‹ lebih lama, › lebih baru, sampai kembali ke draf yang sedang diketik). Draf tidak tertimpa. **Simpan** saat membuka catatan tersimpan menimpa berkas itu (tidak membuat berkas baru); **Simpan** dari draf membuat berkas baru |
+| Notes | Catatan cepat; tempel, salin, dan simpan ke `Documents\Dragon Dynamic Island Notes` sebagai `.txt`. **Baru** mengosongkan kotak (draf yang belum disimpan disimpan otomatis dulu, jadi tidak ada tulisan yang hilang). Tombol **‹ › »** membuka catatan tersimpan, urut dari yang **terakhir dibuat** (waktu dibuat diambil dari nama berkas, jadi urutan tidak berubah saat berkas ditimpa): ‹ lebih lama, › lebih baru, **»** langsung ke yang terbaru (draf yang sedang dikerjakan). **Simpan** saat membuka catatan tersimpan menimpa berkas itu; dari draf membuat berkas baru |
 | Claude | **Sesi Claude Code** di komputer ini dalam 24 jam terakhir (bekerja / butuh izin / selesai), notifikasi saat selesai atau butuh izin, batas pemakaian 5 jam & 7 hari; **chat cepat** lewat Claude API |
 
 Di bawah panel ada baris ikon, satu per halaman: klik ikonnya untuk langsung ke halaman itu. Tombol ‹ › di sampingnya berpindah satu halaman.
